@@ -10,7 +10,8 @@ import {
   CheckCircle, 
   XCircle, 
   ArrowLeft,
-  Shield
+  Shield,
+  Eye
 } from "lucide-react";
 
 interface AnalysisDisplayProps {
@@ -74,28 +75,41 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
         </CardContent>
       </Card>
 
-      {/* Red Flags */}
-      <Card>
+      {/* Weird/Suspicious Reviews - Enhanced */}
+      <Card className={result.redFlags.length > 0 ? "border-red-200 bg-red-50/30" : "border-green-200 bg-green-50/30"}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Detected Issues
+            <Eye className="h-5 w-5" />
+            {result.redFlags.length > 0 ? "🚨 Weird & Suspicious Review Patterns Detected" : "✅ No Suspicious Patterns Found"}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {result.redFlags.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <p className="text-sm text-slate-600 mb-3">
+                Our AI has identified the following suspicious patterns that suggest potential review manipulation:
+              </p>
               {result.redFlags.map((flag, index) => (
-                <div key={index} className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                  <span className="text-red-800">{flag}</span>
+                <div key={index} className="flex items-start gap-3 p-4 bg-white border border-red-200 rounded-lg shadow-sm">
+                  <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-red-800 font-medium">{flag}</span>
                 </div>
               ))}
+              <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                <p className="text-red-800 text-sm font-medium">
+                  ⚠️ Recommendation: Be cautious when making purchasing decisions based on these reviews. Consider looking for more recent, verified reviews from different sources.
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-green-800">No significant red flags detected</span>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-4 bg-white border border-green-200 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-green-800 font-medium">No significant suspicious patterns detected in the review analysis</span>
+              </div>
+              <p className="text-sm text-slate-600">
+                The reviews appear to follow natural patterns with diverse language, realistic timing, and authentic reviewer behavior.
+              </p>
             </div>
           )}
         </CardContent>
