@@ -1,7 +1,24 @@
+import { ReviewData, AnalysisResult, ProductInfo } from "@/types/review";
 
-import { ReviewData, AnalysisResult } from "@/types/review";
+const extractProductInfo = (productLink: string): ProductInfo => {
+  // Extract ASIN from Amazon URL
+  const asinMatch = productLink.match(/\/dp\/([A-Z0-9]{10})/);
+  const asin = asinMatch ? asinMatch[1] : '';
+  
+  // Generate placeholder product info (in real implementation, this would fetch from Amazon API)
+  const productInfo: ProductInfo = {
+    title: asin ? `Amazon Product ${asin}` : "Product Information Unavailable",
+    image: asin ? `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg` : "/placeholder.svg",
+    link: productLink,
+    asin: asin
+  };
+  
+  return productInfo;
+};
 
 export const analyzeReview = (data: ReviewData): AnalysisResult => {
+  const productInfo = extractProductInfo(data.productLink);
+  
   // Simulate analysis based on product link
   const isAmazonLink = data.productLink.includes('amazon.com');
   const hasProductId = data.productLink.includes('/dp/');
@@ -59,6 +76,7 @@ export const analyzeReview = (data: ReviewData): AnalysisResult => {
     scoreExplanation: `Analysis of the product reviews revealed ${redFlags.length > 0 ? 'several suspicious patterns' : 'no major red flags'} that indicate ${verdict.toLowerCase()} authenticity. Our AI examined review timing, language patterns, reviewer behavior, and purchase verification.`,
     redFlags,
     finalVerdict: verdict,
-    verdictExplanation: `Based on our comprehensive analysis of the product's review ecosystem, we assess this product's reviews as ${verdict.toLowerCase()}. ${redFlags.length > 0 ? `We identified ${redFlags.length} suspicious pattern(s) that suggest potential review manipulation.` : 'The review patterns appear consistent with authentic customer feedback.'}`
+    verdictExplanation: `Based on our comprehensive analysis of the product's review ecosystem, we assess this product's reviews as ${verdict.toLowerCase()}. ${redFlags.length > 0 ? `We identified ${redFlags.length} suspicious pattern(s) that suggest potential review manipulation.` : 'The review patterns appear consistent with authentic customer feedback.'}`,
+    productInfo
   };
 };
