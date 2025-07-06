@@ -13,7 +13,7 @@ const Index = () => {
   const handleAnalyze = async (reviewData: ReviewData) => {
     setIsAnalyzing(true);
     // Simulate analysis delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     const result = analyzeReview(reviewData);
     setAnalysisResult(result);
@@ -35,7 +35,7 @@ const Index = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Amazon Review Fraud Detector</h1>
-              <p className="text-slate-600">Advanced AI-powered authenticity analysis</p>
+              <p className="text-slate-600">AI-powered product review authenticity analysis</p>
             </div>
           </div>
         </div>
@@ -45,7 +45,7 @@ const Index = () => {
         {!analysisResult ? (
           <div className="space-y-8">
             {/* Introduction */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="bg-white rounded-xl p-6 shadow-sm border max-w-4xl mx-auto">
               <div className="flex items-start gap-4">
                 <div className="p-2 bg-amber-100 rounded-lg flex-shrink-0">
                   <Search className="h-5 w-5 text-amber-600" />
@@ -53,9 +53,9 @@ const Index = () => {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-800 mb-2">How it works</h2>
                   <p className="text-slate-600 leading-relaxed">
-                    Our advanced fraud detection system analyzes review content, linguistic patterns, 
-                    reviewer behavior, and profile data to identify potentially fake, paid, or AI-generated reviews. 
-                    Enter the review details below for comprehensive authenticity assessment.
+                    Simply paste an Amazon product link below and our AI will analyze all the reviews 
+                    for that product to detect fake, paid, or manipulated reviews. We examine review patterns, 
+                    timing, language, and reviewer behavior to give you an authenticity assessment.
                   </p>
                 </div>
               </div>

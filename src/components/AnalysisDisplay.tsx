@@ -6,8 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { 
   Brain, 
-  FileText, 
-  User, 
   AlertTriangle, 
   CheckCircle, 
   XCircle, 
@@ -42,12 +40,12 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <Button onClick={onReset} variant="outline" className="flex items-center gap-2">
           <ArrowLeft className="h-4 w-4" />
-          Analyze Another Review
+          Analyze Another Product
         </Button>
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-blue-600" />
@@ -60,7 +58,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            🧠 1. Genuineness Score
+            Overall Review Authenticity Score
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -76,68 +74,12 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
         </CardContent>
       </Card>
 
-      {/* Review Content Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            🗒️ 2. Review Content Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-semibold mb-2">Specificity and Detail Level</h4>
-            <p className="text-slate-600">{result.contentAnalysis.specificity}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-2">Language Patterns</h4>
-            <p className="text-slate-600">{result.contentAnalysis.languagePatterns}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-2">Emotional Tone</h4>
-            <p className="text-slate-600">{result.contentAnalysis.emotionalTone}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-2">Product Alignment</h4>
-            <p className="text-slate-600">{result.contentAnalysis.productAlignment}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Reviewer Profile Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            🔍 3. Reviewer Profile Analysis
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <h4 className="font-semibold mb-2">Activity Patterns</h4>
-            <p className="text-slate-600">{result.profileAnalysis.activityPatterns}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-2">Review Consistency</h4>
-            <p className="text-slate-600">{result.profileAnalysis.reviewConsistency}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-2">Verification Status</h4>
-            <p className="text-slate-600">{result.profileAnalysis.verificationStatus}</p>
-          </div>
-          <div>
-            <h4 className="font-semibold mb-2">Profile Credibility</h4>
-            <p className="text-slate-600">{result.profileAnalysis.credibility}</p>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Red Flags */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            🚩 4. Red Flags
+            Detected Issues
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -164,7 +106,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            ✅ 5. Final Verdict
+            Final Assessment
           </CardTitle>
         </CardHeader>
         <CardContent>
