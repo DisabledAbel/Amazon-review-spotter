@@ -38,8 +38,8 @@ const Index = () => {
               <Shield className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Amazon Review Fraud Detector</h1>
-              <p className="text-slate-600">AI-powered product review authenticity analysis</p>
+              <h1 className="text-2xl font-bold text-slate-800">Amazon Review Spotter</h1>
+              <p className="text-slate-600">Spot fake reviews with real-time analysis</p>
             </div>
           </div>
         </div>

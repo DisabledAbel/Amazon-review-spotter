@@ -1,6 +1,6 @@
-# 🔎 Amazon Review Validator
+# 🔎 Amazon Review Spotter
 
-Detect fake, paid, or AI-generated Amazon product reviews using a structured LLM-based analysis.
+Spot fake, paid, or AI-generated Amazon product reviews using real-time web scraping and pattern analysis.
 
 ---
 
