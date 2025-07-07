@@ -1,4 +1,5 @@
 import { ReviewData, AnalysisResult, ProductInfo } from "@/types/review";
+import { supabase } from "@/integrations/supabase/client";
 
 const extractProductInfo = (productLink: string): ProductInfo => {
   // Extract ASIN from Amazon URL
@@ -16,56 +17,119 @@ const extractProductInfo = (productLink: string): ProductInfo => {
   return productInfo;
 };
 
-export const analyzeReview = (data: ReviewData): AnalysisResult => {
+export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> => {
   const productInfo = extractProductInfo(data.productLink);
   
-  // Simulate analysis based on product link
+  // Check if it's a valid Amazon link
   const isAmazonLink = data.productLink.includes('amazon.com');
   const hasProductId = data.productLink.includes('/dp/');
   
-  let genuinenessScore = 7;
-  let redFlags: string[] = [];
-  let verdict = "Possibly Genuine";
-  
-  if (!isAmazonLink) {
-    genuinenessScore -= 3;
-    redFlags.push("❌ Invalid Amazon product link provided - cannot analyze reviews");
-    verdict = "Unable to Analyze";
+  if (!isAmazonLink || !hasProductId) {
+    return {
+      genuinenessScore: 0,
+      scoreExplanation: "Unable to analyze: Invalid Amazon product URL provided",
+      redFlags: ["❌ Invalid Amazon product link provided - cannot analyze reviews"],
+      finalVerdict: "Unable to Analyze",
+      verdictExplanation: "Please provide a valid Amazon product URL to analyze reviews",
+      productInfo
+    };
   }
-  
-  if (!hasProductId) {
-    genuinenessScore -= 2;
-    redFlags.push("⚠️ Product link appears to be incomplete or invalid");
+
+  try {
+    // Call the real review scraping edge function
+    const { data: scrapingResult, error } = await supabase.functions.invoke('scrape-reviews', {
+      body: { productUrl: data.productLink }
+    });
+
+    if (error) {
+      console.error('Error calling scrape-reviews function:', error);
+      throw error;
+    }
+
+    if (!scrapingResult.success) {
+      throw new Error(scrapingResult.error || 'Failed to scrape reviews');
+    }
+
+    const analysis = scrapingResult.analysis;
+    const reviews = scrapingResult.reviews || [];
+
+    // Convert percentage to 1-10 scale for compatibility
+    const genuinenessScore = analysis.overallAuthenticityScore / 10;
+
+    // Create red flags from analysis
+    const redFlags = analysis.commonSuspiciousPatterns.map((p: any) => 
+      `${p.pattern} (found in ${p.count} reviews)`
+    );
+
+    // Add additional red flags based on metrics
+    if (analysis.verificationRate < 30) {
+      redFlags.push(`🚫 Low verification rate: Only ${analysis.verificationRate}% of reviews are verified purchases`);
+    }
+
+    const fiveStarRate = (analysis.ratingDistribution[5] || 0) / analysis.totalReviews * 100;
+    if (fiveStarRate > 80) {
+      redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
+    }
+
+    return {
+      genuinenessScore,
+      scoreExplanation: `Real-time analysis of ${analysis.totalReviews} reviews shows ${analysis.overallAuthenticityScore}% authenticity. Analyzed review patterns, verification rates, language consistency, and timing patterns.`,
+      redFlags,
+      finalVerdict: analysis.verdict,
+      verdictExplanation: `Based on comprehensive scraping and analysis of actual Amazon reviews: ${analysis.verdict}. Found ${analysis.verifiedPurchases} verified purchases out of ${analysis.totalReviews} total reviews (${analysis.verificationRate}% verification rate).`,
+      productInfo,
+      // Add additional data from real scraping
+      realAnalysis: {
+        totalReviews: analysis.totalReviews,
+        verificationRate: analysis.verificationRate,
+        authenticityPercentage: analysis.overallAuthenticityScore,
+        ratingDistribution: analysis.ratingDistribution,
+        individualReviews: reviews.map((review: any) => ({
+          author: review.author,
+          rating: review.rating,
+          title: review.title,
+          link: review.link,
+          verified: review.verified,
+          authenticityScore: review.authenticityScore,
+          suspiciousPatterns: review.suspiciousPatterns
+        }))
+      }
+    };
+
+  } catch (error) {
+    console.error('Error during real review analysis:', error);
+    
+    // Fallback to simulated analysis if scraping fails
+    return simulateAnalysis(data, productInfo);
   }
+};
+
+// Fallback simulation function
+const simulateAnalysis = (data: ReviewData, productInfo: ProductInfo): AnalysisResult => {
+  const genuinenessScore = Math.random() * 4 + 3; // 3-7 range
+  const redFlags: string[] = [];
   
-  // Simulate detection of weird review patterns
-  const weirdReviewPatterns = [
-    { condition: Math.random() > 0.6, flag: "🤖 Multiple reviews contain identical phrases like 'This product exceeded my expectations'", impact: -2 },
-    { condition: Math.random() > 0.7, flag: "📅 Suspicious clustering: 15+ reviews posted within the same 2-hour window", impact: -1.5 },
-    { condition: Math.random() > 0.5, flag: "🎭 Several reviewers have only reviewed this brand's products (potential paid reviews)", impact: -2 },
-    { condition: Math.random() > 0.8, flag: "📝 Reviews contain unusual marketing language: 'game-changing', 'revolutionary', 'must-have'", impact: -1.5 },
-    { condition: Math.random() > 0.6, flag: "⭐ Unnatural rating distribution: 89% five-star reviews, almost no 2-3 star reviews", impact: -1 },
-    { condition: Math.random() > 0.9, flag: "👤 Multiple reviewers joined Amazon on the same day and only reviewed this product", impact: -2.5 },
-    { condition: Math.random() > 0.7, flag: "🔄 Reviews follow similar templates: 'I was skeptical at first but...' pattern repeated", impact: -1.5 },
-    { condition: Math.random() > 0.8, flag: "📸 Fake verified purchase badges detected on reviews without actual purchase history", impact: -2 },
-    { condition: Math.random() > 0.5, flag: "🌍 Geographic clustering: Most reviewers from same unusual location for this product type", impact: -1 },
-    { condition: Math.random() > 0.9, flag: "🏆 Reviews mention competitor products negatively while praising this one excessively", impact: -1.5 },
+  // Simulate some red flags
+  const simulatedPatterns = [
+    { condition: Math.random() > 0.6, flag: "🤖 Multiple reviews contain identical phrases like 'This product exceeded my expectations'" },
+    { condition: Math.random() > 0.7, flag: "📅 Suspicious clustering: 15+ reviews posted within the same 2-hour window" },
+    { condition: Math.random() > 0.5, flag: "🎭 Several reviewers have only reviewed this brand's products (potential paid reviews)" },
+    { condition: Math.random() > 0.8, flag: "📝 Reviews contain unusual marketing language: 'game-changing', 'revolutionary', 'must-have'" },
+    { condition: Math.random() > 0.6, flag: "⭐ Unnatural rating distribution: 89% five-star reviews, almost no 2-3 star reviews" },
   ];
   
-  weirdReviewPatterns.forEach(pattern => {
+  simulatedPatterns.forEach(pattern => {
     if (pattern.condition) {
       redFlags.push(pattern.flag);
-      genuinenessScore += pattern.impact;
     }
   });
   
-  genuinenessScore = Math.max(1, Math.min(10, genuinenessScore));
-  
-  if (genuinenessScore >= 8) {
+  let verdict = "Possibly Genuine";
+  if (genuinenessScore >= 6.5) {
     verdict = "Very Likely Genuine";
-  } else if (genuinenessScore >= 6) {
+  } else if (genuinenessScore >= 5) {
     verdict = "Possibly Genuine";
-  } else if (genuinenessScore >= 4) {
+  } else if (genuinenessScore >= 3.5) {
     verdict = "Suspicious";
   } else {
     verdict = "Likely Fake";
@@ -73,10 +137,10 @@ export const analyzeReview = (data: ReviewData): AnalysisResult => {
   
   return {
     genuinenessScore: Math.round(genuinenessScore * 10) / 10,
-    scoreExplanation: `Analysis of the product reviews revealed ${redFlags.length > 0 ? 'several suspicious patterns' : 'no major red flags'} that indicate ${verdict.toLowerCase()} authenticity. Our AI examined review timing, language patterns, reviewer behavior, and purchase verification.`,
+    scoreExplanation: `Simulated analysis (real scraping failed). Estimated patterns suggest ${verdict.toLowerCase()} authenticity based on URL analysis.`,
     redFlags,
     finalVerdict: verdict,
-    verdictExplanation: `Based on our comprehensive analysis of the product's review ecosystem, we assess this product's reviews as ${verdict.toLowerCase()}. ${redFlags.length > 0 ? `We identified ${redFlags.length} suspicious pattern(s) that suggest potential review manipulation.` : 'The review patterns appear consistent with authentic customer feedback.'}`,
+    verdictExplanation: `Fallback analysis suggests this product's reviews are ${verdict.toLowerCase()}. For accurate results, please try again or check your internet connection.`,
     productInfo
   };
 };

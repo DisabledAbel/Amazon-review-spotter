@@ -69,13 +69,32 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             <CardContent>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <Progress value={result.genuinenessScore * 10} className="h-3" />
+                  <Progress value={result.realAnalysis?.authenticityPercentage || result.genuinenessScore * 10} className="h-3" />
                 </div>
                 <div className={`text-2xl font-bold ${getScoreColor(result.genuinenessScore)}`}>
-                  {result.genuinenessScore}/10
+                  {result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10)}%
                 </div>
               </div>
               <p className="mt-2 text-slate-600">{result.scoreExplanation}</p>
+              
+              {result.realAnalysis && (
+                <div className="mt-4 grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.totalReviews}</div>
+                    <div className="text-sm text-blue-600">Total Reviews</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.verificationRate}%</div>
+                    <div className="text-sm text-blue-600">Verified Purchases</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-800">
+                      {Object.values(result.realAnalysis.ratingDistribution).reduce((a, b) => a + b, 0)}
+                    </div>
+                    <div className="text-sm text-blue-600">Analyzed Reviews</div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -118,6 +137,77 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
               )}
             </CardContent>
           </Card>
+
+          {/* Individual Reviews Analysis */}
+          {result.realAnalysis?.individualReviews && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5" />
+                  Individual Review Analysis & Links
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {result.realAnalysis.individualReviews.slice(0, 5).map((review, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-medium text-slate-800">{review.author}</span>
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <span key={i} className={`text-sm ${i < review.rating ? 'text-yellow-500' : 'text-gray-300'}`}>★</span>
+                              ))}
+                            </div>
+                            {review.verified && (
+                              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                Verified Purchase
+                              </Badge>
+                            )}
+                          </div>
+                          <h4 className="font-medium text-sm mb-2">{review.title}</h4>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-lg font-bold ${review.authenticityScore >= 70 ? 'text-green-600' : review.authenticityScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {review.authenticityScore}%
+                          </div>
+                          <div className="text-xs text-slate-500">Authenticity</div>
+                        </div>
+                      </div>
+                      
+                      {review.suspiciousPatterns.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded p-2">
+                          <div className="text-sm font-medium text-red-800 mb-1">Suspicious Patterns:</div>
+                          <div className="text-xs text-red-700">
+                            {review.suspiciousPatterns.slice(0, 2).join('; ')}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full flex items-center gap-2"
+                        onClick={() => window.open(review.link, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Review on Amazon
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {result.realAnalysis.individualReviews.length > 5 && (
+                    <div className="text-center pt-4">
+                      <p className="text-sm text-slate-600">
+                        Showing 5 of {result.realAnalysis.individualReviews.length} analyzed reviews
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Final Verdict */}
           <Card>

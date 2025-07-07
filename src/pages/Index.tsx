@@ -12,12 +12,16 @@ const Index = () => {
 
   const handleAnalyze = async (reviewData: ReviewData) => {
     setIsAnalyzing(true);
-    // Simulate analysis delay for better UX
-    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    const result = analyzeReview(reviewData);
-    setAnalysisResult(result);
-    setIsAnalyzing(false);
+    try {
+      const result = await analyzeReview(reviewData);
+      setAnalysisResult(result);
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      // Handle error - could show error state
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleReset = () => {

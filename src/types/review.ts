@@ -17,4 +17,19 @@ export interface AnalysisResult {
   finalVerdict: string;
   verdictExplanation: string;
   productInfo: ProductInfo;
+  realAnalysis?: {
+    totalReviews: number;
+    verificationRate: number;
+    authenticityPercentage: number;
+    ratingDistribution: Record<number, number>;
+    individualReviews: {
+      author: string;
+      rating: number;
+      title: string;
+      link: string;
+      verified: boolean;
+      authenticityScore: number;
+      suspiciousPatterns: string[];
+    }[];
+  };
 }
