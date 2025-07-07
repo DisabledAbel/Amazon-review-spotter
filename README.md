@@ -39,6 +39,4 @@ The tool feeds review content and reviewer metadata into a language model using 
 ---
 
 ## 🛠 installation 
-***Coming soon&**
-
-
+***Coming soon***
