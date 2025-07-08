@@ -39,4 +39,5 @@ The tool feeds review content and reviewer metadata into a language model using 
 ---
 
 ## 🛠 installation 
-***Coming soon***
+[![Install Amazon Review Validator](https://img.shields.io/badge/Install%20App-Amazon%20Review%20Validator-blue?style=for-the-badge&logo=github)](https://github.com/apps/amazon-review-validator/installations/new)
+
