@@ -47,7 +47,19 @@ serve(async (req) => {
     const realData = await scrapeRealReviews(reviewsUrl, asin);
     
     if (!realData || !realData.reviews || realData.reviews.length === 0) {
-      throw new Error('Unable to extract real reviews from Amazon. Amazon may be blocking requests or the product has no reviews.');
+      throw new Error('REAL DATA ONLY: Unable to extract genuine reviews from Amazon. No simulated data will be provided.');
+    }
+    
+    // Verify all reviews have real content (not placeholders)
+    const validReviews = realData.reviews.filter(review => 
+      review.author && 
+      review.title && 
+      review.content && 
+      !review.content.includes('This is a detailed review of the product') // Remove any placeholder content
+    );
+    
+    if (validReviews.length === 0) {
+      throw new Error('REAL DATA ONLY: No valid real reviews found. Only authentic Amazon review data is returned.');
     }
     
     return new Response(JSON.stringify({
