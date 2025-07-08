@@ -1,4 +1,1 @@
 project_id = "fpokfpzvhqfeumklxgbd"
-
-[functions.scrape-reviews]
-verify_jwt = false
