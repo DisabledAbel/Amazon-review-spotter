@@ -2,3 +2,6 @@ project_id = "fpokfpzvhqfeumklxgbd"
 
 [functions.scrape-reviews]
 verify_jwt = false
+
+[functions.amazon-chat]
+verify_jwt = false

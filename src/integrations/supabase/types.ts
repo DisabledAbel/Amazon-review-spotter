@@ -20,6 +20,7 @@ export type Database = {
           created_at: string
           email: string | null
           full_name: string | null
+          github_username: string | null
           id: string
           updated_at: string
           user_id: string
@@ -29,6 +30,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           full_name?: string | null
+          github_username?: string | null
           id?: string
           updated_at?: string
           user_id: string
@@ -38,8 +40,45 @@ export type Database = {
           created_at?: string
           email?: string | null
           full_name?: string | null
+          github_username?: string | null
           id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saved_products: {
+        Row: {
+          analysis_score: number | null
+          analysis_verdict: string | null
+          asin: string | null
+          id: string
+          product_image: string | null
+          product_title: string | null
+          product_url: string
+          saved_at: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis_score?: number | null
+          analysis_verdict?: string | null
+          asin?: string | null
+          id?: string
+          product_image?: string | null
+          product_title?: string | null
+          product_url: string
+          saved_at?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis_score?: number | null
+          analysis_verdict?: string | null
+          asin?: string | null
+          id?: string
+          product_image?: string | null
+          product_title?: string | null
+          product_url?: string
+          saved_at?: string | null
           user_id?: string
         }
         Relationships: []

@@ -1,9 +1,13 @@
 
+import { useState } from "react";
 import { AnalysisResult } from "@/types/review";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Brain, 
   AlertTriangle, 
@@ -12,7 +16,9 @@ import {
   ArrowLeft,
   Shield,
   Eye,
-  ExternalLink
+  ExternalLink,
+  Bookmark,
+  BookmarkCheck
 } from "lucide-react";
 
 interface AnalysisDisplayProps {
@@ -21,6 +27,11 @@ interface AnalysisDisplayProps {
 }
 
 export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-green-600";
     if (score >= 6) return "text-yellow-600";
@@ -41,20 +52,69 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
     return <AlertTriangle className="h-4 w-4" />;
   };
 
+  const handleSaveProduct = async () => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      const authenticityScore = result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10);
+      
+      const { error } = await supabase
+        .from('saved_products')
+        .insert({
+          user_id: user.id,
+          product_url: result.productInfo.link,
+          product_title: result.productInfo.title,
+          product_image: result.productInfo.image,
+          asin: result.productInfo.asin,
+          analysis_score: authenticityScore,
+          analysis_verdict: result.finalVerdict
+        });
+
+      if (error) throw error;
+
+      setIsSaved(true);
+      toast({
+        title: "Success",
+        description: "Product saved to your collection"
+      });
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save product",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Analysis Content - Left Side */}
         <div className="lg:col-span-2 space-y-6">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <Button onClick={onReset} variant="outline" className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Analyze Another Product
             </Button>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
-              <span className="font-semibold text-slate-700">Analysis Complete</span>
+            <div className="flex items-center gap-4">
+              <Button 
+                onClick={handleSaveProduct}
+                disabled={saving || isSaved}
+                variant={isSaved ? "outline" : "default"}
+                className="flex items-center gap-2"
+              >
+                {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                {saving ? "Saving..." : isSaved ? "Saved" : "Save Product"}
+              </Button>
+              <div className="flex items-center gap-2">
+                <Shield className="h-5 w-5 text-primary" />
+                <span className="font-semibold text-foreground">Analysis Complete</span>
+              </div>
             </div>
           </div>
 
