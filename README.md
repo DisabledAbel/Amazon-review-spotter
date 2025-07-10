@@ -25,9 +25,7 @@ Spot fake, paid, or AI-generated Amazon product reviews using real-time web scra
 The tool feeds review content and reviewer metadata into a language model using a prompt engineered to assess authenticity.
 
 **Input Requirements:**
-- Product name and (optional) product description
-- Review text
-- Reviewer profile (name, review count, average rating, recent activity, etc.)
+- Product URL
 
 **Output:**
 - Genuineness Score (1–10)
