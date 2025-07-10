@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnalysisResult } from "@/types/review";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +31,19 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   const { toast } = useToast();
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Store product context for chatbot
+  useEffect(() => {
+    if (result) {
+      const productContext = {
+        title: result.productInfo.title,
+        score: Math.round(result.genuinenessScore * 10),
+        verdict: result.finalVerdict,
+        redFlags: result.redFlags
+      };
+      sessionStorage.setItem('current-product-analysis', JSON.stringify(productContext));
+    }
+  }, [result]);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-green-600";

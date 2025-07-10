@@ -11,15 +11,32 @@ interface BeforeInstallPromptEvent extends Event {
 export const PWAPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowPrompt(true);
-    };
+    // Check if running in standalone mode
+    const isRunningStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone ||
+      document.referrer.includes('android-app://');
+    
+    setIsStandalone(isRunningStandalone);
+    
+    // If not in standalone mode, force installation
+    if (!isRunningStandalone) {
+      const handler = (e: Event) => {
+        e.preventDefault();
+        setDeferredPrompt(e as BeforeInstallPromptEvent);
+        setShowPrompt(true);
+      };
 
-    window.addEventListener('beforeinstallprompt', handler);
+      window.addEventListener('beforeinstallprompt', handler);
+      
+      // Show prompt after a delay if no install prompt available
+      setTimeout(() => {
+        if (!deferredPrompt) {
+          setShowPrompt(true);
+        }
+      }, 2000);
 
     // Register service worker
     if ('serviceWorker' in navigator) {
@@ -32,19 +49,27 @@ export const PWAPrompt = () => {
         });
     }
 
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
-    };
-  }, []);
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handler);
+      };
+    }
+  }, [deferredPrompt]);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      // If no native prompt, redirect to prevent browser usage
+      window.location.href = 'about:blank';
+      return;
+    }
 
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     
     if (outcome === 'accepted') {
       console.log('User accepted the install prompt');
+    } else {
+      // If user dismisses, prevent browser usage
+      window.location.href = 'about:blank';
     }
     
     setDeferredPrompt(null);
@@ -52,9 +77,8 @@ export const PWAPrompt = () => {
   };
 
   const handleDismiss = () => {
-    setShowPrompt(false);
-    // Show again after 24 hours
-    localStorage.setItem('pwa-dismissed', Date.now().toString());
+    // Don't allow dismissing - force installation
+    handleInstall();
   };
 
   // Check if user dismissed recently
@@ -69,7 +93,8 @@ export const PWAPrompt = () => {
     }
   }, []);
 
-  if (!showPrompt || !deferredPrompt) return null;
+  // Don't show if already installed/running in standalone
+  if (isStandalone || (!showPrompt && !deferredPrompt)) return null;
 
   return (
     <Card className="fixed bottom-20 left-4 right-4 z-50 shadow-lg border-primary/20 bg-card/95 backdrop-blur-sm md:left-auto md:right-4 md:w-80">
@@ -90,7 +115,7 @@ export const PWAPrompt = () => {
               </Button>
               <Button onClick={handleDismiss} variant="outline" size="sm" className="h-8 text-xs">
                 <X className="mr-1 h-3 w-3" />
-                Not now
+                Force Install
               </Button>
             </div>
           </div>

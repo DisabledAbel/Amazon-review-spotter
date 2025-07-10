@@ -131,7 +131,7 @@ export const AppSidebar = () => {
               <Button 
                 variant="outline" 
                 className="w-full justify-start" 
-                onClick={() => window.open('https://github.com/lovable-dev/amazon-review-spotter', '_blank')}
+                onClick={() => window.open('https://github.com/DisabledAbel/Amazon-review-spotter/issues', '_blank')}
               >
                 <Github className="mr-2 h-4 w-4" />
                 Support & Feedback

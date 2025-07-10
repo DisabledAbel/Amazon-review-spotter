@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LandingPage } from "@/components/LandingPage";
 import { ReviewInput } from "@/components/ReviewInput";
@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PWAPrompt } from "@/components/PWAPrompt";
+import { InstallationGuide } from "@/components/InstallationGuide";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle } from "lucide-react";
@@ -16,6 +17,18 @@ const Index = () => {
   const { user, loading } = useAuth();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+
+  // Show installation guide for new users
+  useEffect(() => {
+    if (user) {
+      const hasSeenGuide = localStorage.getItem('has-seen-install-guide');
+      if (!hasSeenGuide) {
+        setShowInstallGuide(true);
+        localStorage.setItem('has-seen-install-guide', 'true');
+      }
+    }
+  }, [user]);
 
   const handleAnalyze = async (reviewData: ReviewData) => {
     setIsAnalyzing(true);
@@ -64,6 +77,10 @@ const Index = () => {
       <AppSidebar />
       <ChatBot />
       <PWAPrompt />
+      <InstallationGuide 
+        open={showInstallGuide} 
+        onOpenChange={setShowInstallGuide} 
+      />
       
       {/* Header */}
       <div className="bg-card border-b shadow-sm">

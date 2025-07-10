@@ -44,10 +44,22 @@ export const ChatBot = () => {
     setLoading(true);
 
     try {
+      // Check if there's a current product analysis for context
+      const currentProduct = sessionStorage.getItem('current-product-analysis');
+      let productContext = null;
+      
+      if (currentProduct) {
+        try {
+          productContext = JSON.parse(currentProduct);
+        } catch (e) {
+          console.warn('Failed to parse product context');
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('amazon-chat', {
         body: { 
           message: input,
-          productContext: null 
+          productContext: productContext
         }
       });
 
