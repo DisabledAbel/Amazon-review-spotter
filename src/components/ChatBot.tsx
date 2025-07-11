@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { MessageSquare, Bot, User, Send, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { secureStorage } from "@/lib/secureStorage";
 
 interface Message {
   id: string;
@@ -27,14 +28,68 @@ export const ChatBot = () => {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastMessageTime, setLastMessageTime] = useState(0);
   const { toast } = useToast();
 
+  // Rate limiting - max 10 messages per minute
+  const RATE_LIMIT_INTERVAL = 60000; // 1 minute
+  const MAX_MESSAGES_PER_INTERVAL = 10;
+
+  const checkRateLimit = (): boolean => {
+    const now = Date.now();
+    const rateLimitKey = 'chat-rate-limit';
+    
+    const rateData = secureStorage.getItem<{ count: number; resetTime: number }>(rateLimitKey);
+    
+    if (!rateData || now > rateData.resetTime) {
+      // Reset or initialize rate limit
+      secureStorage.setItem(rateLimitKey, { 
+        count: 1, 
+        resetTime: now + RATE_LIMIT_INTERVAL 
+      });
+      return true;
+    }
+    
+    if (rateData.count >= MAX_MESSAGES_PER_INTERVAL) {
+      toast({
+        title: "Rate limit exceeded",
+        description: "Please wait before sending another message.",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    // Increment count
+    secureStorage.setItem(rateLimitKey, { 
+      ...rateData, 
+      count: rateData.count + 1 
+    });
+    return true;
+  };
+
+  // Input validation and sanitization
+  const validateAndSanitizeInput = (text: string): string => {
+    if (!text || typeof text !== 'string') return '';
+    
+    // Remove potentially dangerous characters and limit length
+    const sanitized = text
+      .trim()
+      .replace(/[<>]/g, '') // Remove basic HTML chars
+      .substring(0, 1000); // Limit message length
+    
+    return sanitized;
+  };
+
   const sendMessage = async () => {
-    if (!input.trim()) return;
+    const sanitizedInput = validateAndSanitizeInput(input);
+    if (!sanitizedInput) return;
+
+    // Check rate limit
+    if (!checkRateLimit()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: input,
+      text: sanitizedInput,
       isBot: false,
       timestamp: new Date()
     };
@@ -44,21 +99,17 @@ export const ChatBot = () => {
     setLoading(true);
 
     try {
-      // Check if there's a current product analysis for context
-      const currentProduct = sessionStorage.getItem('current-product-analysis');
-      let productContext = null;
-      
-      if (currentProduct) {
-        try {
-          productContext = JSON.parse(currentProduct);
-        } catch (e) {
-          console.warn('Failed to parse product context');
-        }
-      }
+      // Safely get product context using secure storage
+      const productContext = secureStorage.getItem<{
+        title: string;
+        score: number;
+        verdict: string;
+        redFlags?: string[];
+      }>('current-product-analysis');
 
       const { data, error } = await supabase.functions.invoke('amazon-chat', {
         body: { 
-          message: input,
+          message: sanitizedInput,
           productContext: productContext
         }
       });

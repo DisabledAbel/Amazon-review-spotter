@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { secureStorage } from "@/lib/secureStorage";
 import { 
   Brain, 
   AlertTriangle, 
@@ -32,7 +33,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Store product context for chatbot
+  // Store product context for chatbot using secure storage
   useEffect(() => {
     if (result) {
       const productContext = {
@@ -41,7 +42,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
         verdict: result.finalVerdict,
         redFlags: result.redFlags
       };
-      sessionStorage.setItem('current-product-analysis', JSON.stringify(productContext));
+      secureStorage.setProductAnalysis(productContext);
     }
   }, [result]);
 

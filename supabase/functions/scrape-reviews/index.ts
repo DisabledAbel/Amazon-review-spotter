@@ -26,7 +26,33 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required',
+        success: false 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Log security event
+    console.log('Review analysis request from authenticated user');
+
     const { productUrl } = await req.json();
+    
+    // Validate and sanitize input
+    if (!productUrl || typeof productUrl !== 'string') {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid product URL provided',
+        success: false 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     
     if (!productUrl || !productUrl.includes('amazon.com')) {
       throw new Error('Invalid Amazon product URL');

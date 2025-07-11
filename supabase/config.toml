@@ -1,7 +1,7 @@
 project_id = "fpokfpzvhqfeumklxgbd"
 
 [functions.scrape-reviews]
-verify_jwt = false
+verify_jwt = true
 
 [functions.amazon-chat]
-verify_jwt = false
+verify_jwt = true

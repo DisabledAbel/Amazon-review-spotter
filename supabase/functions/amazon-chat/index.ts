@@ -12,12 +12,41 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required',
+        response: 'Please log in to use the chat feature.'
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Log security event
+    console.log('Chat request from authenticated user');
+
     const { message, productContext } = await req.json();
+    
+    // Validate and sanitize inputs
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'Invalid message provided',
+        response: 'Please provide a valid message.'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Sanitize message to prevent injection attacks
+    const sanitizedMessage = message.trim().substring(0, 1000); // Limit message length
     
     // Enhanced AI responses with product context awareness
     let response = '';
     
-    const messageL = message.toLowerCase();
+    const messageL = sanitizedMessage.toLowerCase();
     
     if (productContext) {
       // Product-specific responses

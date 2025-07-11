@@ -15,14 +15,70 @@ interface ReviewInputProps {
 export const ReviewInput = ({ onAnalyze, isAnalyzing }: ReviewInputProps) => {
   const [productLink, setProductLink] = useState("");
 
+  // Enhanced URL validation
+  const validateAmazonURL = (url: string): boolean => {
+    try {
+      const parsedUrl = new URL(url);
+      const validDomains = [
+        'amazon.com', 'www.amazon.com', 
+        'amazon.co.uk', 'www.amazon.co.uk',
+        'amazon.ca', 'www.amazon.ca',
+        'amazon.de', 'www.amazon.de',
+        'amazon.fr', 'www.amazon.fr',
+        'amazon.it', 'www.amazon.it',
+        'amazon.es', 'www.amazon.es',
+        'amazon.co.jp', 'www.amazon.co.jp'
+      ];
+      
+      const isValidDomain = validDomains.some(domain => 
+        parsedUrl.hostname === domain || parsedUrl.hostname.endsWith('.' + domain)
+      );
+      
+      const hasProductId = parsedUrl.pathname.includes('/dp/') || parsedUrl.pathname.includes('/gp/product/');
+      
+      return isValidDomain && hasProductId;
+    } catch {
+      return false;
+    }
+  };
+
+  const sanitizeURL = (url: string): string => {
+    try {
+      const parsedUrl = new URL(url);
+      // Remove tracking parameters for privacy
+      const cleanParams = new URLSearchParams();
+      
+      // Keep only essential Amazon parameters
+      const allowedParams = ['tag', 'ref', 'psc'];
+      for (const [key, value] of parsedUrl.searchParams) {
+        if (allowedParams.includes(key)) {
+          cleanParams.set(key, value);
+        }
+      }
+      
+      parsedUrl.search = cleanParams.toString();
+      return parsedUrl.toString();
+    } catch {
+      return url;
+    }
+  };
+
   const handleSubmit = () => {
+    const trimmedLink = productLink.trim();
+    
+    if (!validateAmazonURL(trimmedLink)) {
+      return; // Invalid URL, don't proceed
+    }
+    
+    const sanitizedLink = sanitizeURL(trimmedLink);
+    
     const data: ReviewData = {
-      productLink,
+      productLink: sanitizedLink,
     };
     onAnalyze(data);
   };
 
-  const isValid = productLink.trim().length > 0;
+  const isValid = productLink.trim().length > 0 && validateAmazonURL(productLink.trim());
 
   return (
     <div className="max-w-2xl mx-auto">

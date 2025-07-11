@@ -12,12 +12,14 @@ import { InstallationGuide } from "@/components/InstallationGuide";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const { user, loading } = useAuth();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const { toast } = useToast();
 
   // Show installation guide for new users
   useEffect(() => {
@@ -31,6 +33,16 @@ const Index = () => {
   }, [user]);
 
   const handleAnalyze = async (reviewData: ReviewData) => {
+    // Validate user authentication before analysis
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to analyze product reviews.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
     
     try {
@@ -38,7 +50,35 @@ const Index = () => {
       setAnalysisResult(result);
     } catch (error) {
       console.error('Analysis failed:', error);
-      // Handle error - could show error state
+      
+      // Enhanced error handling with user-friendly messages
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      if (errorMessage.includes('Authentication required') || errorMessage.includes('401')) {
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again to continue.",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes('Rate limit') || errorMessage.includes('429')) {
+        toast({
+          title: "Rate Limit Exceeded",
+          description: "Please wait before analyzing another product.",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes('Invalid') || errorMessage.includes('400')) {
+        toast({
+          title: "Invalid Request",
+          description: "Please check your product URL and try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Analysis Failed",
+          description: "Unable to analyze reviews. Please try again later.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsAnalyzing(false);
     }
