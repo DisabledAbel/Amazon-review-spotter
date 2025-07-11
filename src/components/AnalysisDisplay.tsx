@@ -211,6 +211,62 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </CardContent>
           </Card>
 
+          {/* Online Videos Section */}
+          {result.realAnalysis?.onlineVideos && result.realAnalysis.onlineVideos.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5" />
+                  Related Online Videos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {result.realAnalysis.onlineVideos.slice(0, 3).map((video, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-3">
+                      <div className="flex items-start gap-4">
+                        <div className="w-24 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                          <img 
+                            src={video.thumbnail} 
+                            alt={video.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "/placeholder.svg";
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm mb-1 line-clamp-2">{video.title}</h4>
+                          <p className="text-xs text-slate-600 mb-2">{video.channel} • {video.duration}</p>
+                          <p className="text-xs text-slate-500 line-clamp-2">{video.description}</p>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full flex items-center gap-2"
+                        onClick={() => window.open(video.url, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Watch on {video.platform}
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {result.realAnalysis.onlineVideos.length > 3 && (
+                    <div className="text-center pt-4">
+                      <p className="text-sm text-slate-600">
+                        Showing 3 of {result.realAnalysis.onlineVideos.length} found videos
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Individual Reviews Analysis */}
           {result.realAnalysis?.individualReviews && (
             <Card>

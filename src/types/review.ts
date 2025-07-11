@@ -10,6 +10,16 @@ export interface ProductInfo {
   asin: string;
 }
 
+export interface OnlineVideo {
+  title: string;
+  url: string;
+  thumbnail: string;
+  channel: string;
+  duration: string;
+  description: string;
+  platform: string;
+}
+
 export interface AnalysisResult {
   genuinenessScore: number;
   scoreExplanation: string;
@@ -31,5 +41,6 @@ export interface AnalysisResult {
       authenticityScore: number;
       suspiciousPatterns: string[];
     }[];
+    onlineVideos?: OnlineVideo[];
   };
 }
