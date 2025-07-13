@@ -14,7 +14,8 @@ import {
   Menu,
   ExternalLink,
   Trash2,
-  Calendar
+  Calendar,
+  TrendingUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -128,6 +129,14 @@ export const AppSidebar = () => {
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={() => window.open('/historical-analysis', '_self')}
+              >
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Historical Analysis
+              </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start" 

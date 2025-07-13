@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      analysis_history: {
+        Row: {
+          analysis_data: Json | null
+          analysis_score: number
+          analysis_verdict: string
+          analyzed_at: string
+          asin: string | null
+          confidence_score: number | null
+          created_at: string
+          fake_review_count: number | null
+          id: string
+          product_title: string | null
+          product_url: string
+          total_reviews: number | null
+          user_id: string
+        }
+        Insert: {
+          analysis_data?: Json | null
+          analysis_score: number
+          analysis_verdict: string
+          analyzed_at?: string
+          asin?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          fake_review_count?: number | null
+          id?: string
+          product_title?: string | null
+          product_url: string
+          total_reviews?: number | null
+          user_id: string
+        }
+        Update: {
+          analysis_data?: Json | null
+          analysis_score?: number
+          analysis_verdict?: string
+          analyzed_at?: string
+          asin?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          fake_review_count?: number | null
+          id?: string
+          product_title?: string | null
+          product_url?: string
+          total_reviews?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           id: string
