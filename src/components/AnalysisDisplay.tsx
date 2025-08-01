@@ -73,16 +73,20 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
     try {
       const authenticityScore = result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10);
       
-      const { error } = await supabase
-        .from('saved_products')
-        .insert({
+    const { error } = await supabase
+      .from('analysis_history')
+      .insert({
           user_id: user.id,
           product_url: result.productInfo.link,
           product_title: result.productInfo.title,
           product_image: result.productInfo.image,
           asin: result.productInfo.asin,
           analysis_score: authenticityScore,
-          analysis_verdict: result.finalVerdict
+          analysis_verdict: result.finalVerdict,
+          total_reviews: result.realAnalysis?.totalReviews || 0,
+          fake_review_count: result.realAnalysis?.individualReviews?.filter(r => r.authenticityScore < 50).length || 0,
+          confidence_score: result.genuinenessScore * 10 || 0,
+          analysis_data: JSON.parse(JSON.stringify(result))
         });
 
       if (error) throw error;

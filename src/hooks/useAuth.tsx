@@ -58,16 +58,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signInWithGitHub = async () => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: {
-        redirectTo: redirectUrl
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: redirectUrl
+        }
+      });
+      
+      if (error) {
+        console.error('GitHub sign in error:', error);
+        // Check if GitHub OAuth is not configured
+        if (error.message.includes('OAuth') || error.message.includes('provider')) {
+          alert('GitHub OAuth is not configured in Supabase. Please configure it in the Auth settings.');
+        }
+        throw error;
       }
-    });
-    
-    if (error) {
-      console.error('GitHub sign in error:', error);
-      throw error;
+    } catch (err) {
+      console.error('Unexpected error during GitHub sign in:', err);
+      throw err;
     }
   };
 

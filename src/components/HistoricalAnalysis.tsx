@@ -61,11 +61,14 @@ export const HistoricalAnalysis = () => {
       const { data, error } = await supabase
         .from('analysis_history')
         .select('*')
-        .order('analyzed_at', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      setHistoricalData(data || []);
+      setHistoricalData((data || []).map(item => ({
+        ...item,
+        analyzed_at: item.created_at
+      })));
       
       // Group products and count analyses
       const productGroups = (data || []).reduce((acc: Record<string, { title: string; count: number }>, item) => {

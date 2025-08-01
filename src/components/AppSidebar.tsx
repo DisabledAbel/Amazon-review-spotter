@@ -45,12 +45,15 @@ export const AppSidebar = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('saved_products')
+        .from('analysis_history')
         .select('*')
-        .order('saved_at', { ascending: false });
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setSavedProducts(data || []);
+      setSavedProducts((data || []).map(item => ({
+        ...item,
+        saved_at: item.created_at
+      })));
     } catch (error) {
       console.error('Error fetching saved products:', error);
       toast({
@@ -65,8 +68,8 @@ export const AppSidebar = () => {
 
   const deleteSavedProduct = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('saved_products')
+    const { error } = await supabase
+      .from('analysis_history')
         .delete()
         .eq('id', id);
       
