@@ -10,166 +10,17 @@ export type Database = {
   // Allows to automatically instanciate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
   public: {
     Tables: {
-      analysis_history: {
-        Row: {
-          analysis_data: Json | null
-          analysis_score: number
-          analysis_verdict: string
-          analyzed_at: string
-          asin: string | null
-          confidence_score: number | null
-          created_at: string
-          fake_review_count: number | null
-          id: string
-          product_title: string | null
-          product_url: string
-          total_reviews: number | null
-          user_id: string
-        }
-        Insert: {
-          analysis_data?: Json | null
-          analysis_score: number
-          analysis_verdict: string
-          analyzed_at?: string
-          asin?: string | null
-          confidence_score?: number | null
-          created_at?: string
-          fake_review_count?: number | null
-          id?: string
-          product_title?: string | null
-          product_url: string
-          total_reviews?: number | null
-          user_id: string
-        }
-        Update: {
-          analysis_data?: Json | null
-          analysis_score?: number
-          analysis_verdict?: string
-          analyzed_at?: string
-          asin?: string | null
-          confidence_score?: number | null
-          created_at?: string
-          fake_review_count?: number | null
-          id?: string
-          product_title?: string | null
-          product_url?: string
-          total_reviews?: number | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      audit_log: {
-        Row: {
-          id: string
-          new_data: Json | null
-          old_data: Json | null
-          operation: string
-          table_name: string
-          timestamp: string | null
-          user_id: string | null
-        }
-        Insert: {
-          id?: string
-          new_data?: Json | null
-          old_data?: Json | null
-          operation: string
-          table_name: string
-          timestamp?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          id?: string
-          new_data?: Json | null
-          old_data?: Json | null
-          operation?: string
-          table_name?: string
-          timestamp?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          email: string | null
-          full_name: string | null
-          github_username: string | null
-          id: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          github_username?: string | null
-          id?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          email?: string | null
-          full_name?: string | null
-          github_username?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      saved_products: {
-        Row: {
-          analysis_score: number | null
-          analysis_verdict: string | null
-          asin: string | null
-          id: string
-          product_image: string | null
-          product_title: string | null
-          product_url: string
-          saved_at: string | null
-          user_id: string
-        }
-        Insert: {
-          analysis_score?: number | null
-          analysis_verdict?: string | null
-          asin?: string | null
-          id?: string
-          product_image?: string | null
-          product_title?: string | null
-          product_url: string
-          saved_at?: string | null
-          user_id: string
-        }
-        Update: {
-          analysis_score?: number | null
-          analysis_verdict?: string | null
-          asin?: string | null
-          id?: string
-          product_image?: string | null
-          product_title?: string | null
-          product_url?: string
-          saved_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      log_security_event: {
-        Args: { event_type: string; details?: Json }
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
