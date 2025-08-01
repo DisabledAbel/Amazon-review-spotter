@@ -32,6 +32,35 @@ const Index = () => {
     }
   }, [user]);
 
+  // Listen for product analysis requests from YouTube search
+  useEffect(() => {
+    const handleAnalyzeProduct = (event: CustomEvent) => {
+      const { url } = event.detail;
+      if (url) {
+        // Auto-fill the URL and trigger analysis
+        const urlInput = document.querySelector('input[placeholder*="Amazon"]') as HTMLInputElement;
+        if (urlInput) {
+          urlInput.value = url;
+          urlInput.dispatchEvent(new Event('input', { bubbles: true }));
+          
+          // Trigger analysis
+          setTimeout(() => {
+            const analyzeButton = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+            if (analyzeButton) {
+              analyzeButton.click();
+            }
+          }, 100);
+        }
+      }
+    };
+
+    window.addEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
+    
+    return () => {
+      window.removeEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
+    };
+  }, []);
+
   const handleAnalyze = async (reviewData: ReviewData) => {
     // Validate user authentication before analysis
     if (!user) {

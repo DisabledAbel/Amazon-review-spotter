@@ -15,7 +15,8 @@ import {
   ExternalLink,
   Trash2,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Youtube
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -132,6 +133,14 @@ export const AppSidebar = () => {
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={() => window.open('/youtube-search', '_self')}
+              >
+                <Youtube className="mr-2 h-4 w-4" />
+                YouTube Product Search
+              </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start" 
