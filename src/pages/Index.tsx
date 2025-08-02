@@ -6,6 +6,7 @@ import { ReviewInput } from "@/components/ReviewInput";
 import { AnalysisDisplay } from "@/components/AnalysisDisplay";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
+import { YouTubeSearchWidget } from "@/components/YouTubeSearchWidget";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { InstallationGuide } from "@/components/InstallationGuide";
@@ -186,7 +187,10 @@ const Index = () => {
               </div>
             </div>
 
-            <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+              <YouTubeSearchWidget />
+            </div>
           </div>
         ) : (
           <AnalysisDisplay result={analysisResult} onReset={handleReset} />
