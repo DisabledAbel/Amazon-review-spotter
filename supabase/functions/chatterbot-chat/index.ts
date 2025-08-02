@@ -9,8 +9,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const chatterBotApiUrl = Deno.env.get('CHATTERBOT_API_URL');
-const chatterBotApiKey = Deno.env.get('CHATTERBOT_API_KEY');
+const geminiApiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -45,50 +44,76 @@ serve(async (req) => {
     
     let response: string;
 
-    // Check if ChatterBot API is configured
-    if (chatterBotApiUrl && chatterBotApiKey) {
+    // Check if Google Gemini API is configured
+    if (geminiApiKey) {
       try {
-        // Use ChatterBot API
-        const chatterBotResponse = await fetch(chatterBotApiUrl, {
+        // Prepare system prompt and context
+        const systemPrompt = `You are an AI assistant specialized in Amazon product reviews and authenticity. 
+        You can only discuss topics related to:
+        - Amazon product reviews and authenticity
+        - How to spot fake reviews
+        - Shopping tips and advice
+        - Product evaluation techniques
+        - Review analysis
+        
+        If asked about anything else, politely redirect the conversation back to these topics.
+        Keep responses helpful, concise, and focused on review authenticity.`;
+
+        let contextMessage = '';
+        if (productContext) {
+          contextMessage = `\n\nCurrent product context:
+          - Product: ${productContext.title}
+          - Authenticity Score: ${productContext.score}/100
+          - Verdict: ${productContext.verdict}
+          - Red Flags: ${productContext.redFlags?.join(', ') || 'None detected'}`;
+        }
+
+        // Use Google Gemini API
+        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${chatterBotApiKey}`,
           },
           body: JSON.stringify({
-            text: sanitizedMessage,
-            context: productContext ? {
-              product_title: productContext.title,
-              authenticity_score: productContext.score,
-              verdict: productContext.verdict,
-              red_flags: productContext.redFlags || []
-            } : null,
-            system_prompt: `You are an AI assistant specialized in Amazon product reviews and authenticity. 
-            You can only discuss topics related to:
-            - Amazon product reviews and authenticity
-            - How to spot fake reviews
-            - Shopping tips and advice
-            - Product evaluation techniques
-            - Review analysis
-            
-            If asked about anything else, politely redirect the conversation back to these topics.
-            Keep responses helpful, concise, and focused on review authenticity.`
+            contents: [{
+              parts: [{
+                text: `${systemPrompt}${contextMessage}\n\nUser: ${sanitizedMessage}`
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.7,
+              topK: 40,
+              topP: 0.95,
+              maxOutputTokens: 1024,
+            },
+            safetySettings: [
+              {
+                category: "HARM_CATEGORY_HARASSMENT",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              },
+              {
+                category: "HARM_CATEGORY_HATE_SPEECH",
+                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+              }
+            ]
           }),
         });
 
-        if (!chatterBotResponse.ok) {
-          throw new Error('ChatterBot API error');
+        if (!geminiResponse.ok) {
+          const errorData = await geminiResponse.text();
+          console.error('Gemini API error:', errorData);
+          throw new Error('Gemini API error');
         }
 
-        const chatterBotData = await chatterBotResponse.json();
-        response = chatterBotData.text || chatterBotData.response || "I'm sorry, I couldn't process that request.";
+        const geminiData = await geminiResponse.json();
+        response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that request.";
       } catch (error) {
-        console.error('ChatterBot API error:', error);
+        console.error('Gemini API error:', error);
         // Fallback to built-in responses
         response = generateFallbackResponse(sanitizedMessage, productContext);
       }
     } else {
-      // Use built-in responses if ChatterBot is not configured
+      // Use built-in responses if Gemini is not configured
       response = generateFallbackResponse(sanitizedMessage, productContext);
     }
 
