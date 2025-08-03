@@ -10,6 +10,7 @@ import { YouTubeSearchWidget } from "@/components/YouTubeSearchWidget";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { InstallationGuide } from "@/components/InstallationGuide";
+import { AIDetector } from "@/components/AIDetector";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle } from "lucide-react";
@@ -190,6 +191,11 @@ const Index = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
               <YouTubeSearchWidget />
+            </div>
+
+            {/* AI Content Detector Section */}
+            <div className="max-w-4xl mx-auto">
+              <AIDetector context="general" />
             </div>
           </div>
         ) : (
