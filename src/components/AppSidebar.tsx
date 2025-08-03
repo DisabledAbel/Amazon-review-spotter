@@ -16,7 +16,8 @@ import {
   Trash2,
   Calendar,
   TrendingUp,
-  Youtube
+  Youtube,
+  Shield
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -133,6 +134,14 @@ export const AppSidebar = () => {
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start" 
+                onClick={() => window.open('/reviews', '_self')}
+              >
+                <Shield className="mr-2 h-4 w-4" />
+                Review Analysis
+              </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start" 
