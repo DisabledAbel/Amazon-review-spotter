@@ -394,14 +394,31 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                   </p>
                 )}
                 
-                <Button 
-                  variant="outline" 
-                  className="w-full flex items-center gap-2"
-                  onClick={() => window.open(result.productInfo.link, '_blank')}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  View on Amazon
-                </Button>
+                <div className="space-y-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full flex items-center gap-2"
+                    onClick={() => window.open(result.productInfo.link, '_blank')}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View on Amazon
+                  </Button>
+                  
+                  <Button 
+                    variant="default" 
+                    className="w-full flex items-center gap-2"
+                    onClick={() => {
+                      // Dispatch event to show YouTube search widget
+                      const event = new CustomEvent('showYouTubeSearch', {
+                        detail: { productTitle: result.productInfo.title }
+                      });
+                      window.dispatchEvent(event);
+                    }}
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Videos on This Product
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

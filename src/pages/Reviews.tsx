@@ -40,10 +40,33 @@ const Reviews = () => {
       }
     };
 
+    const handleShowYouTubeSearch = (event: CustomEvent) => {
+      const { productTitle } = event.detail;
+      if (productTitle) {
+        // Scroll to YouTube search widget and trigger search
+        const youtubeWidget = document.querySelector('[data-component="youtube-search"]');
+        if (youtubeWidget) {
+          youtubeWidget.scrollIntoView({ behavior: 'smooth' });
+          
+          // Trigger search with product title
+          const searchInput = youtubeWidget.querySelector('input') as HTMLInputElement;
+          const searchButton = youtubeWidget.querySelector('button[type="submit"]') as HTMLButtonElement;
+          
+          if (searchInput && searchButton) {
+            searchInput.value = `${productTitle} review`;
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            setTimeout(() => searchButton.click(), 100);
+          }
+        }
+      }
+    };
+
     window.addEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
+    window.addEventListener('showYouTubeSearch', handleShowYouTubeSearch as EventListener);
     
     return () => {
       window.removeEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
+      window.removeEventListener('showYouTubeSearch', handleShowYouTubeSearch as EventListener);
     };
   }, []);
 
@@ -179,7 +202,9 @@ const Reviews = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
-              <YouTubeSearchWidget />
+              <div data-component="youtube-search">
+                <YouTubeSearchWidget />
+              </div>
             </div>
 
             {/* AI Content Detector Section */}
