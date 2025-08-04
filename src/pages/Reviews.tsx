@@ -51,8 +51,10 @@ const Reviews = () => {
           youtubeWidget.scrollIntoView({ behavior: 'smooth' });
           
           // Trigger search with product title
-          const searchInput = youtubeWidget.querySelector('input') as HTMLInputElement;
-          const searchButton = youtubeWidget.querySelector('button[type="submit"]') as HTMLButtonElement;
+          const searchInput = youtubeWidget.querySelector('input[placeholder*="Search for product videos"]') as HTMLInputElement;
+          const searchButton = Array.from(youtubeWidget.querySelectorAll('button')).find(btn => 
+            btn.textContent?.includes('Search') || btn.innerHTML.includes('search')
+          ) as HTMLButtonElement;
           
           console.log("Search input found:", searchInput);
           console.log("Search button found:", searchButton);
