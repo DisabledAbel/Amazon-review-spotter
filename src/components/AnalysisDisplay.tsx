@@ -408,10 +408,13 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                     variant="default" 
                     className="w-full flex items-center gap-2"
                     onClick={() => {
+                      console.log("View Videos button clicked");
+                      console.log("Product title:", result.productInfo.title);
                       // Dispatch event to show YouTube search widget
                       const event = new CustomEvent('showYouTubeSearch', {
                         detail: { productTitle: result.productInfo.title }
                       });
+                      console.log("Dispatching showYouTubeSearch event:", event.detail);
                       window.dispatchEvent(event);
                     }}
                   >

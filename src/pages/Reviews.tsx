@@ -41,10 +41,12 @@ const Reviews = () => {
     };
 
     const handleShowYouTubeSearch = (event: CustomEvent) => {
+      console.log("showYouTubeSearch event received:", event.detail);
       const { productTitle } = event.detail;
       if (productTitle) {
         // Scroll to YouTube search widget and trigger search
         const youtubeWidget = document.querySelector('[data-component="youtube-search"]');
+        console.log("YouTube widget found:", youtubeWidget);
         if (youtubeWidget) {
           youtubeWidget.scrollIntoView({ behavior: 'smooth' });
           
@@ -52,10 +54,17 @@ const Reviews = () => {
           const searchInput = youtubeWidget.querySelector('input') as HTMLInputElement;
           const searchButton = youtubeWidget.querySelector('button[type="submit"]') as HTMLButtonElement;
           
+          console.log("Search input found:", searchInput);
+          console.log("Search button found:", searchButton);
+          
           if (searchInput && searchButton) {
             searchInput.value = `${productTitle} review`;
             searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(() => searchButton.click(), 100);
+            console.log("Setting search value to:", `${productTitle} review`);
+            setTimeout(() => {
+              console.log("Clicking search button");
+              searchButton.click();
+            }, 100);
           }
         }
       }
@@ -213,7 +222,16 @@ const Reviews = () => {
             </div>
           </div>
         ) : (
-          <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+          <>
+            <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+            
+            {/* YouTube Search Widget - Always rendered but hidden when analysis result is shown */}
+            <div className="mt-8">
+              <div data-component="youtube-search">
+                <YouTubeSearchWidget />
+              </div>
+            </div>
+          </>
         )}
 
         {/* Footer */}
