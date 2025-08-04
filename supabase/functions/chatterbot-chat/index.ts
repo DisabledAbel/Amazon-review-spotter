@@ -60,12 +60,34 @@ serve(async (req) => {
         Keep responses helpful, concise, and focused on review authenticity.`;
 
         let contextMessage = '';
+        let youtubeVideos: any[] = [];
+        
         if (productContext) {
           contextMessage = `\n\nCurrent product context:
           - Product: ${productContext.title}
           - Authenticity Score: ${productContext.score}/100
           - Verdict: ${productContext.verdict}
           - Red Flags: ${productContext.redFlags?.join(', ') || 'None detected'}`;
+          
+          // Auto-search for YouTube videos when product is analyzed
+          try {
+            const { data: videoData } = await supabase.functions.invoke('youtube-search', {
+              body: { 
+                query: `${productContext.title} review`,
+                maxResults: 5 
+              }
+            });
+            
+            if (videoData?.videos) {
+              youtubeVideos = videoData.videos;
+              contextMessage += `\n\nI also found these YouTube reviews for this product:
+${youtubeVideos.map((video: any, index: number) => 
+  `${index + 1}. ${video.title} by ${video.channelTitle} (${video.publishedAt})`
+).join('\n')}`;
+            }
+          } catch (error) {
+            console.error('Error fetching YouTube videos:', error);
+          }
         }
 
         // Use Google Gemini API
@@ -106,15 +128,24 @@ serve(async (req) => {
         }
 
         const geminiData = await geminiResponse.json();
-        response = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that request.";
+        let aiResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that request.";
+        
+        // Add YouTube videos to response if available
+        if (youtubeVideos.length > 0) {
+          aiResponse += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
+            `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
+          ).join('\n')}`;
+        }
+        
+        response = aiResponse;
       } catch (error) {
         console.error('Gemini API error:', error);
         // Fallback to built-in responses
-        response = generateFallbackResponse(sanitizedMessage, productContext);
+        response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
       }
     } else {
       // Use built-in responses if Gemini is not configured
-      response = generateFallbackResponse(sanitizedMessage, productContext);
+      response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
     }
 
     return new Response(
@@ -147,7 +178,7 @@ serve(async (req) => {
   }
 });
 
-function generateFallbackResponse(message: string, productContext?: any): string {
+function generateFallbackResponse(message: string, productContext?: any, youtubeVideos?: any[]): string {
   const lowerMessage = message.toLowerCase();
   
   // Product-specific responses
@@ -155,13 +186,22 @@ function generateFallbackResponse(message: string, productContext?: any): string
     const { title, score, verdict, redFlags } = productContext;
     
     if (lowerMessage.includes('this product') || lowerMessage.includes('current product')) {
-      return `Based on my analysis of "${title}", here's what I found:
+      let response = `Based on my analysis of "${title}", here's what I found:
       
 • **Authenticity Score**: ${score}/100
 • **Verdict**: ${verdict}
 • **Red Flags**: ${redFlags && redFlags.length > 0 ? redFlags.join(', ') : 'None detected'}
 
 Would you like me to explain any specific aspect of this analysis?`;
+
+      // Add YouTube videos if available
+      if (youtubeVideos && youtubeVideos.length > 0) {
+        response += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
+          `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
+        ).join('\n')}`;
+      }
+
+      return response;
     }
     
     if (lowerMessage.includes('score') || lowerMessage.includes('rating')) {

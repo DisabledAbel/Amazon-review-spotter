@@ -37,6 +37,29 @@ export const ChatBot = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Listen for product analysis events to automatically provide YouTube videos
+  useEffect(() => {
+    const handleProductAnalyzed = async (event: CustomEvent) => {
+      const { productTitle } = event.detail;
+      if (productTitle && isOpen) {
+        // Automatically send a message about YouTube videos for the analyzed product
+        const autoMessage: Message = {
+          id: (Date.now() + 1000).toString(),
+          text: `I see you just analyzed "${productTitle}". Let me find some YouTube reviews for this product!`,
+          isBot: true,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, autoMessage]);
+      }
+    };
+
+    window.addEventListener('productAnalyzed', handleProductAnalyzed as EventListener);
+    
+    return () => {
+      window.removeEventListener('productAnalyzed', handleProductAnalyzed as EventListener);
+    };
+  }, [isOpen]);
+
   // Rate limiting - max 10 messages per minute
   const RATE_LIMIT_INTERVAL = 60000; // 1 minute
   const MAX_MESSAGES_PER_INTERVAL = 10;

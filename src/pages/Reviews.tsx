@@ -63,6 +63,12 @@ const Reviews = () => {
     try {
       const result = await analyzeReview(reviewData);
       setAnalysisResult(result);
+      
+      // Dispatch event to trigger chatbot YouTube video search
+      const productAnalyzedEvent = new CustomEvent('productAnalyzed', {
+        detail: { productTitle: result.productInfo.title }
+      });
+      window.dispatchEvent(productAnalyzedEvent);
     } catch (error) {
       console.error('Analysis failed:', error);
       
