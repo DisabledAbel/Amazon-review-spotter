@@ -1,1 +1,4 @@
 project_id = "drbngqxlxwabzphoitib"
+
+[functions.youtube-search]
+verify_jwt = false
