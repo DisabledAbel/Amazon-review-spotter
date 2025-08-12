@@ -39,6 +39,30 @@ function extractAmazonLinks(text: string): string[] {
   return [...new Set(matches)]; // Remove duplicates
 }
 
+async function fetchAmazonLinksFromComments(videoId: string, apiKey: string): Promise<string[]> {
+  try {
+    const commentsUrl = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=50&order=relevance&key=${apiKey}`;
+    const response = await fetch(commentsUrl);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('YouTube API comments error:', errorData);
+      return [];
+    }
+
+    const data = await response.json();
+    const texts: string[] = (data.items || []).map((item: any) =>
+      item.snippet?.topLevelComment?.snippet?.textDisplay || ''
+    );
+
+    const links = texts.flatMap((t) => extractAmazonLinks(t));
+    return [...new Set(links)];
+  } catch (err) {
+    console.error('Failed fetching comments for video:', videoId, err);
+    return [];
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -85,25 +109,35 @@ serve(async (req) => {
 
     const detailsData = await detailsResponse.json();
 
-    // Process videos and extract Amazon links
-    const videos: VideoItem[] = detailsData.items.map((item: any) => {
-      const fullDescription = item.snippet.description || '';
-      const title = item.snippet.title || '';
-      const amazonLinks = extractAmazonLinks(`${title} ${fullDescription}`);
-      
-      return {
-        id: item.id,
-        title: title,
-        description: fullDescription.substring(0, 500) + (fullDescription.length > 500 ? '...' : ''),
-        thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
-        channelTitle: item.snippet.channelTitle || '',
-        publishedAt: item.snippet.publishedAt || '',
-        url: `https://www.youtube.com/watch?v=${item.id}`,
-        amazonLinks: amazonLinks
-      };
-    });
+    // Process videos and extract Amazon links (including from comments)
+    const videos: VideoItem[] = await Promise.all(
+      detailsData.items.map(async (item: any) => {
+        const fullDescription = item.snippet.description || '';
+        const title = item.snippet.title || '';
 
-    console.log(`Found ${videos.length} videos, ${videos.reduce((acc, v) => acc + v.amazonLinks.length, 0)} Amazon links total`);
+        // Extract links from title + description
+        const descLinks = extractAmazonLinks(`${title} ${fullDescription}`);
+
+        // Extract links from top comments
+        const commentLinks = await fetchAmazonLinksFromComments(item.id, youtubeApiKey);
+
+        const allLinks = [...new Set([...(descLinks || []), ...(commentLinks || [])])];
+
+        return {
+          id: item.id,
+          title: title,
+          description: fullDescription.substring(0, 500) + (fullDescription.length > 500 ? '...' : ''),
+          thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
+          channelTitle: item.snippet.channelTitle || '',
+          publishedAt: item.snippet.publishedAt || '',
+          url: `https://www.youtube.com/watch?v=${item.id}`,
+          amazonLinks: allLinks,
+        };
+      })
+    );
+
+    const totalAmazonLinks = videos.reduce((acc, v) => acc + (v.amazonLinks?.length || 0), 0);
+    console.log(`Found ${videos.length} videos, ${totalAmazonLinks} Amazon links total (including comments)`);
 
     return new Response(JSON.stringify({ 
       videos,
