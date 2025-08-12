@@ -21,6 +21,7 @@ import {
   Bookmark,
   BookmarkCheck
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface AnalysisDisplayProps {
   result: AnalysisResult;
@@ -30,6 +31,7 @@ interface AnalysisDisplayProps {
 export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -408,14 +410,8 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                     variant="default" 
                     className="w-full flex items-center gap-2"
                     onClick={() => {
-                      console.log("View Videos button clicked");
-                      console.log("Product title:", result.productInfo.title);
-                      // Dispatch event to show YouTube search widget
-                      const event = new CustomEvent('showYouTubeSearch', {
-                        detail: { productTitle: result.productInfo.title }
-                      });
-                      console.log("Dispatching showYouTubeSearch event:", event.detail);
-                      window.dispatchEvent(event);
+                      const query = `${result.productInfo.title} review`;
+                      navigate(`/youtube-search?query=${encodeURIComponent(query)}`);
                     }}
                   >
                     <Eye className="h-4 w-4" />

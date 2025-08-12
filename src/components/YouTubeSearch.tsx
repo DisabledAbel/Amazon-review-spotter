@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,8 +34,9 @@ export const YouTubeSearch = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
+  const handleSearch = async (q?: string) => {
+    const queryToUse = (q ?? searchQuery).trim();
+    if (!queryToUse) {
       toast({
         title: "Error",
         description: "Please enter a search query",
@@ -48,7 +49,7 @@ export const YouTubeSearch = () => {
     try {
       const { data, error } = await supabase.functions.invoke('youtube-search', {
         body: { 
-          query: searchQuery,
+          query: queryToUse,
           maxResults: 20,
           order: 'relevance'
         }
@@ -83,6 +84,15 @@ export const YouTubeSearch = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qParam = params.get('query');
+    if (qParam) {
+      setSearchQuery(qParam);
+      handleSearch(qParam);
+    }
+  }, []);
 
   const handleAnalyzeProduct = (amazonLink: string) => {
     // Trigger the existing review analysis by setting the URL
@@ -126,7 +136,7 @@ export const YouTubeSearch = () => {
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
             className="flex-1"
           />
-          <Button onClick={handleSearch} disabled={loading}>
+          <Button onClick={() => handleSearch()} disabled={loading}>
             <Search className="h-4 w-4 mr-2" />
             {loading ? "Searching..." : "Search"}
           </Button>
