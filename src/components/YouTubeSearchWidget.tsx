@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,6 +84,46 @@ export const YouTubeSearchWidget = () => {
       setLoading(false);
     }
   };
+
+  // Listen for global event to prefill and auto-search
+  useEffect(() => {
+    const handler = (e: Event) => {
+      try {
+        const ce = e as CustomEvent;
+        const productTitle = (ce.detail && (ce.detail.productTitle || ce.detail.title)) as string | undefined;
+        if (productTitle) {
+          const q = `${productTitle} review`;
+          setSearchQuery(q);
+          setIsExpanded(true);
+          // Run search with provided query
+          (async () => {
+            setLoading(true);
+            try {
+              const { data, error } = await supabase.functions.invoke('youtube-search', {
+                body: { query: q, maxResults: 6, order: 'relevance' }
+              });
+              if (error) throw error;
+              const response: YouTubeSearchResponse = data;
+              setVideos(response.videos || []);
+              setTotalResults(response.totalResults || 0);
+              const videosWithProducts = response.videos?.filter(v => v.amazonLinks.length > 0).length || 0;
+              toast({ title: 'Search Complete', description: `Found ${response.videos?.length || 0} videos, ${videosWithProducts} contain Amazon products` });
+            } catch (err: any) {
+              console.error('Auto YouTube search error:', err);
+              toast({ title: 'Search Failed', description: err?.message || 'Failed to search YouTube videos', variant: 'destructive' });
+            } finally {
+              setLoading(false);
+            }
+          })();
+        }
+      } catch (err) {
+        console.error('Error handling showYouTubeSearch event:', err);
+      }
+    };
+
+    window.addEventListener('showYouTubeSearch', handler as EventListener);
+    return () => window.removeEventListener('showYouTubeSearch', handler as EventListener);
+  }, []);
 
   const handleAnalyzeProduct = (amazonLink: string) => {
     // Trigger the existing review analysis by setting the URL
