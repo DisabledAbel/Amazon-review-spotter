@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, ExternalLink, ShoppingCart, Youtube, Calendar, User } from "lucide-react";
+import { Search, ExternalLink, ShoppingCart, Youtube, Calendar, User, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -33,6 +33,9 @@ export const YouTubeSearch = () => {
   const [totalResults, setTotalResults] = useState(0);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  const [scanning, setScanning] = useState(false);
+  const [scanMap, setScanMap] = useState<Record<string, { score: number; reason: string }>>({});
 
   const handleSearch = async (q?: string) => {
     const queryToUse = (q ?? searchQuery).trim();
@@ -84,6 +87,50 @@ export const YouTubeSearch = () => {
       setLoading(false);
     }
   };
+
+  const handleGeminiScan = async () => {
+    if (!videos.length) {
+      toast({ title: "No videos to scan", description: "Please run a search first.", variant: "destructive" });
+      return;
+    }
+    const productTitle = searchQuery.trim();
+    if (!productTitle) {
+      toast({ title: "Missing product", description: "Enter a product name to guide Gemini.", variant: "destructive" });
+      return;
+    }
+    setScanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gemini-video-scan', {
+        body: {
+          productTitle,
+          videos: videos.map(v => ({
+            id: v.id,
+            title: v.title,
+            description: v.description,
+            thumbnail: v.thumbnail,
+            url: v.url,
+            channelTitle: v.channelTitle,
+            publishedAt: v.publishedAt,
+            amazonLinks: v.amazonLinks,
+          })),
+        },
+      });
+      if (error) throw error;
+      const results: Array<{ id: string; presenceScore: number; reason: string }> = data?.results || [];
+      const nextMap: Record<string, { score: number; reason: string }> = {};
+      results.forEach(r => {
+        nextMap[r.id] = { score: r.presenceScore ?? 0, reason: r.reason ?? "" };
+      });
+      setScanMap(nextMap);
+      toast({ title: "Scan complete", description: `Analyzed ${results.length} videos with Gemini` });
+    } catch (err: any) {
+      console.error('Gemini scan error:', err);
+      toast({ title: "Scan failed", description: err?.message || "Failed to scan videos", variant: "destructive" });
+    } finally {
+      setScanning(false);
+    }
+  };
+
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -147,6 +194,15 @@ export const YouTubeSearch = () => {
             Found {totalResults.toLocaleString()} total videos
           </p>
         )}
+
+        {videos.length > 0 && (
+          <div className="flex">
+            <Button variant="secondary" onClick={handleGeminiScan} disabled={scanning}>
+              <Sparkles className="h-4 w-4 mr-2" />
+              {scanning ? "Scanning..." : "Scan with Gemini"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Loading State */}
@@ -209,6 +265,17 @@ export const YouTubeSearch = () => {
                           {formatDate(video.publishedAt)}
                         </div>
                       </div>
+
+                      {scanMap[video.id] && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant={scanMap[video.id].score >= 0.7 ? "default" : scanMap[video.id].score >= 0.4 ? "secondary" : "outline"}>
+                            {scanMap[video.id].score >= 0.7 ? "Likely shows product" : scanMap[video.id].score >= 0.4 ? "Possibly shows product" : "Unlikely shows product"}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground line-clamp-1">
+                            {scanMap[video.id].reason}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <p className="text-sm text-muted-foreground line-clamp-3">
