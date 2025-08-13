@@ -5,6 +5,7 @@ import { AnalysisDisplay } from "@/components/AnalysisDisplay";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
 import { YouTubeSearchWidget } from "@/components/YouTubeSearchWidget";
+import { ReviewTips } from "@/components/ReviewTips";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AIDetector } from "@/components/AIDetector";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
@@ -210,6 +211,8 @@ const Reviews = () => {
                 </div>
               </div>
             </div>
+
+            <ReviewTips />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
