@@ -218,6 +218,56 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </CardContent>
           </Card>
 
+          {/* Product Videos Section */}
+          {result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5" />
+                  Product Videos from Amazon Listing
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {result.realAnalysis.productVideos.map((video, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-3">
+                      <div className="aspect-video bg-gray-100 rounded overflow-hidden">
+                        <img 
+                          src={video.thumbnail} 
+                          alt={video.title}
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => video.url !== '#' && window.open(video.url, '_blank')}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/placeholder.svg";
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm mb-1">{video.title}</h4>
+                        <Badge variant="outline" className="text-xs">
+                          {video.type === 'customer' ? 'Customer Video' : 
+                           video.type === 'brand' ? 'Brand Video' : 'Promotional'}
+                        </Badge>
+                      </div>
+                      {video.url !== '#' && (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full flex items-center gap-2"
+                          onClick={() => window.open(video.url, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Watch Video
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Online Videos Section */}
           {result.realAnalysis?.onlineVideos && result.realAnalysis.onlineVideos.length > 0 && (
             <Card>

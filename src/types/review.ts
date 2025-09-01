@@ -20,6 +20,14 @@ export interface OnlineVideo {
   platform: string;
 }
 
+export interface ProductVideo {
+  title: string;
+  url: string;
+  thumbnail: string;
+  duration?: string;
+  type: 'customer' | 'brand' | 'promotional';
+}
+
 export interface AnalysisResult {
   genuinenessScore: number;
   scoreExplanation: string;
@@ -42,5 +50,6 @@ export interface AnalysisResult {
       suspiciousPatterns: string[];
     }[];
     onlineVideos?: OnlineVideo[];
+    productVideos?: ProductVideo[];
   };
 }

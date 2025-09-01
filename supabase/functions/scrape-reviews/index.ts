@@ -95,6 +95,7 @@ serve(async (req) => {
       totalReviews: realData.totalReviews,
       analysis: realData.analysis,
       reviews: realData.reviews,
+      productVideos: realData.productVideos || [],
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -152,10 +153,14 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     throw new Error('No reviews found in HTML - parsing failed');
   }
 
+  // Also scrape product videos
+  const productVideos = await scrapeProductVideos(asin);
+  
   return {
     totalReviews: reviews.length,
     analysis: analyzeRealReviews(reviews),
-    reviews: reviews.slice(0, 10)
+    reviews: reviews.slice(0, 10),
+    productVideos
   };
 }
 
@@ -283,6 +288,90 @@ function calculateRealAuthenticityScore(patterns: string[], verified: boolean, h
   score += Math.min(helpful * 2, 10);
   score += Math.min(content.length / 10, 15);
   return Math.max(0, Math.min(100, score));
+}
+
+async function scrapeProductVideos(asin: string) {
+  try {
+    const productUrl = `https://www.amazon.com/dp/${asin}`;
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+
+    console.log('Scraping product videos from:', productUrl);
+    const response = await fetch(productUrl, { headers });
+    
+    if (!response.ok) {
+      console.log('Failed to fetch product page for videos');
+      return [];
+    }
+
+    const html = await response.text();
+    const videos = [];
+
+    // Extract videos from various Amazon video sections
+    const videoPatterns = [
+      // Customer videos
+      /<div[^>]*data-hook="customer-video"[^>]*>([\s\S]*?)<\/div>/g,
+      // Product videos in main gallery
+      /<video[^>]*src="([^"]+)"[^>]*>/g,
+      // Video thumbnails with play buttons
+      /<img[^>]*alt="[^"]*video[^"]*"[^>]*src="([^"]+)"/gi,
+      // Video links in media gallery
+      /<a[^>]*href="[^"]*video[^"]*"[^>]*>([\s\S]*?)<\/a>/g
+    ];
+
+    for (const pattern of videoPatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null && videos.length < 5) {
+        try {
+          // Extract video URL and thumbnail
+          let videoUrl = '';
+          let thumbnail = '';
+          let title = '';
+          
+          const matchedContent = match[1] || match[0];
+          
+          // Look for video URLs
+          const urlMatch = matchedContent.match(/(?:src|href)="([^"]*(?:\.mp4|\.webm|video)[^"]*)"/i);
+          if (urlMatch) {
+            videoUrl = urlMatch[1];
+          }
+          
+          // Look for thumbnails
+          const thumbMatch = matchedContent.match(/(?:src|data-src)="([^"]*\.jpg[^"]*)"/i);
+          if (thumbMatch) {
+            thumbnail = thumbMatch[1];
+          }
+          
+          // Extract title
+          const titleMatch = matchedContent.match(/alt="([^"]+)"/i) || 
+                           matchedContent.match(/title="([^"]+)"/i);
+          if (titleMatch) {
+            title = titleMatch[1];
+          }
+
+          if (thumbnail || videoUrl) {
+            videos.push({
+              title: title || `Product Video ${videos.length + 1}`,
+              url: videoUrl || '#',
+              thumbnail: thumbnail || '/placeholder.svg',
+              type: 'customer' as const
+            });
+          }
+        } catch (parseError) {
+          console.log('Error parsing video element:', parseError);
+        }
+      }
+    }
+
+    console.log('Found', videos.length, 'product videos');
+    return videos;
+  } catch (error) {
+    console.error('Error scraping product videos:', error);
+    return [];
+  }
 }
 
 function analyzeRealReviews(reviews: ReviewData[]) {

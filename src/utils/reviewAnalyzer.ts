@@ -92,7 +92,8 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
           verified: review.verified,
           authenticityScore: review.authenticityScore,
           suspiciousPatterns: review.suspiciousPatterns
-        }))
+        })),
+        productVideos: scrapingResult.productVideos || []
       }
     };
 
