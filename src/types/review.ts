@@ -18,6 +18,8 @@ export interface OnlineVideo {
   duration: string;
   description: string;
   platform: string;
+  relevanceScore?: number;
+  aiReasoning?: string;
 }
 
 export interface ProductVideo {

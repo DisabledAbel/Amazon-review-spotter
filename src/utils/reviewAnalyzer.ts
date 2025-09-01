@@ -71,6 +71,24 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
       redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
     }
 
+    // Call Gemini video finder to get AI-curated videos
+    let geminiVideos = [];
+    try {
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
+        body: { 
+          productTitle: productInfo.title,
+          productAsin: productInfo.asin 
+        }
+      });
+      
+      if (!videoError && videoData?.success) {
+        geminiVideos = videoData.videos || [];
+        console.log('Found', geminiVideos.length, 'AI-curated videos');
+      }
+    } catch (videoError) {
+      console.log('Gemini video finder failed, continuing without videos:', videoError);
+    }
+
     const result = {
       genuinenessScore,
       scoreExplanation: `Real-time analysis of ${analysis.totalReviews} reviews shows ${analysis.overallAuthenticityScore}% authenticity. Analyzed review patterns, verification rates, language consistency, and timing patterns.`,
@@ -93,7 +111,8 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
           authenticityScore: review.authenticityScore,
           suspiciousPatterns: review.suspiciousPatterns
         })),
-        productVideos: scrapingResult.productVideos || []
+        productVideos: scrapingResult.productVideos || [],
+        onlineVideos: geminiVideos.slice(0, 6) // Top 6 AI-curated videos
       }
     };
 

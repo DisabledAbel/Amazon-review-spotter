@@ -268,21 +268,25 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </Card>
           )}
 
-          {/* Online Videos Section */}
+          {/* AI-Curated Online Videos Section */}
           {result.realAnalysis?.onlineVideos && result.realAnalysis.onlineVideos.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ExternalLink className="h-5 w-5" />
-                  Related Online Videos
+                  <Brain className="h-5 w-5" />
+                  AI-Curated Product Videos
+                  <Badge variant="outline" className="ml-2">Powered by Gemini</Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  These videos were intelligently selected by AI based on relevance to your specific product.
+                </p>
                 <div className="space-y-4">
-                  {result.realAnalysis.onlineVideos.slice(0, 3).map((video, index) => (
+                  {result.realAnalysis.onlineVideos.slice(0, 4).map((video, index) => (
                     <div key={index} className="p-4 border rounded-lg space-y-3">
                       <div className="flex items-start gap-4">
-                        <div className="w-24 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+                        <div className="w-32 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0 relative">
                           <img 
                             src={video.thumbnail} 
                             alt={video.title}
@@ -292,11 +296,19 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                               target.src = "/placeholder.svg";
                             }}
                           />
+                          <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
+                            {video.relevanceScore}%
+                          </div>
                         </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-sm mb-1 line-clamp-2">{video.title}</h4>
-                          <p className="text-xs text-slate-600 mb-2">{video.channel} • {video.duration}</p>
+                          <p className="text-xs text-slate-600 mb-2">{video.channel}</p>
                           <p className="text-xs text-slate-500 line-clamp-2">{video.description}</p>
+                          {video.aiReasoning && (
+                            <p className="text-xs text-blue-600 mt-2 italic">
+                              🤖 AI: {video.aiReasoning}
+                            </p>
+                          )}
                         </div>
                       </div>
                       
@@ -312,10 +324,10 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                     </div>
                   ))}
                   
-                  {result.realAnalysis.onlineVideos.length > 3 && (
+                  {result.realAnalysis.onlineVideos.length > 4 && (
                     <div className="text-center pt-4">
                       <p className="text-sm text-slate-600">
-                        Showing 3 of {result.realAnalysis.onlineVideos.length} found videos
+                        Showing 4 of {result.realAnalysis.onlineVideos.length} AI-curated videos
                       </p>
                     </div>
                   )}
@@ -323,6 +335,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
               </CardContent>
             </Card>
           )}
+
 
           {/* Individual Reviews Analysis */}
           {result.realAnalysis?.individualReviews && (
