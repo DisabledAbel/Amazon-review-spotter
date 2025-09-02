@@ -153,8 +153,8 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     throw new Error('No reviews found in HTML - parsing failed');
   }
 
-  // Also scrape product videos
-  const productVideos = await scrapeProductVideos(asin);
+    // Also scrape review videos
+    const productVideos = await scrapeReviewVideos(reviewsUrl);
   
   return {
     totalReviews: reviews.length,
@@ -290,74 +290,142 @@ function calculateRealAuthenticityScore(patterns: string[], verified: boolean, h
   return Math.max(0, Math.min(100, score));
 }
 
-async function scrapeProductVideos(asin: string) {
+async function scrapeReviewVideos(url: string) {
   try {
-    const productUrl = `https://www.amazon.com/dp/${asin}`;
+    // Navigate to the reviews page specifically
+    const reviewsUrl = url.includes('/reviews/') ? url : url.replace('/dp/', '/product-reviews/');
+    
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
     };
 
-    console.log('Scraping product videos from:', productUrl);
-    const response = await fetch(productUrl, { headers });
+    console.log('Scraping review videos from:', reviewsUrl);
+    const response = await fetch(reviewsUrl, { headers });
     
     if (!response.ok) {
-      console.log('Failed to fetch product page for videos');
+      console.log('Failed to fetch reviews page for videos');
       return [];
     }
 
     const html = await response.text();
     const videos = [];
 
-    // Extract videos from various Amazon video sections
-    const videoPatterns = [
-      // Customer videos
-      /<div[^>]*data-hook="customer-video"[^>]*>([\s\S]*?)<\/div>/g,
-      // Product videos in main gallery
-      /<video[^>]*src="([^"]+)"[^>]*>/g,
-      // Video thumbnails with play buttons
-      /<img[^>]*alt="[^"]*video[^"]*"[^>]*src="([^"]+)"/gi,
-      // Video links in media gallery
-      /<a[^>]*href="[^"]*video[^"]*"[^>]*>([\s\S]*?)<\/a>/g
+    // Enhanced video extraction patterns for review videos
+    const videoSelectors = [
+      // Customer review videos
+      /<div[^>]*data-hook="review-video"[^>]*>([\s\S]*?)<\/div>/g,
+      /<div[^>]*class="[^"]*video-block[^"]*"[^>]*>([\s\S]*?)<\/div>/g,
+      /<div[^>]*class="[^"]*cr-media-video[^"]*"[^>]*>([\s\S]*?)<\/div>/g,
+      // Video containers with m3u8 links
+      /<script[^>]*>[^<]*videoUrl[^<]*\.m3u8[^<]*<\/script>/g,
+      // Video data attributes
+      /<[^>]*data-video-url="[^"]*"[^>]*>/g,
+      /<[^>]*data-video-config="[^"]*"[^>]*>/g
     ];
 
-    for (const pattern of videoPatterns) {
+    for (const pattern of videoSelectors) {
       let match;
-      while ((match = pattern.exec(html)) !== null && videos.length < 5) {
+      while ((match = pattern.exec(html)) !== null && videos.length < 10) {
         try {
-          // Extract video URL and thumbnail
-          let videoUrl = '';
-          let thumbnail = '';
-          let title = '';
-          
-          const matchedContent = match[1] || match[0];
-          
-          // Look for video URLs
-          const urlMatch = matchedContent.match(/(?:src|href)="([^"]*(?:\.mp4|\.webm|video)[^"]*)"/i);
-          if (urlMatch) {
-            videoUrl = urlMatch[1];
-          }
-          
-          // Look for thumbnails
-          const thumbMatch = matchedContent.match(/(?:src|data-src)="([^"]*\.jpg[^"]*)"/i);
-          if (thumbMatch) {
-            thumbnail = thumbMatch[1];
-          }
+          const matchedContent = match[0];
           
           // Extract title
-          const titleMatch = matchedContent.match(/alt="([^"]+)"/i) || 
-                           matchedContent.match(/title="([^"]+)"/i);
-          if (titleMatch) {
-            title = titleMatch[1];
+          let title = '';
+          const titlePatterns = [
+            /data-video-title="([^"]+)"/i,
+            /alt="([^"]*video[^"]*)"/i,
+            /title="([^"]*video[^"]*)"/i,
+            /<h\d[^>]*>([^<]*video[^<]*)</i
+          ];
+          
+          for (const titlePattern of titlePatterns) {
+            const titleMatch = matchedContent.match(titlePattern);
+            if (titleMatch && titleMatch[1]) {
+              title = titleMatch[1].trim();
+              break;
+            }
+          }
+          
+          // Extract thumbnail
+          let thumbnail = '';
+          const thumbPatterns = [
+            /(?:src|data-src|data-lazy-src)="([^"]*\.jpg[^"]*)"/i,
+            /(?:src|data-src|data-lazy-src)="([^"]*\.png[^"]*)"/i,
+            /(?:src|data-src|data-lazy-src)="([^"]*\.webp[^"]*)"/i
+          ];
+          
+          for (const thumbPattern of thumbPatterns) {
+            const thumbMatch = matchedContent.match(thumbPattern);
+            if (thumbMatch && thumbMatch[1]) {
+              thumbnail = thumbMatch[1].trim();
+              if (!thumbnail.startsWith('http')) {
+                thumbnail = thumbnail.startsWith('//') ? `https:${thumbnail}` : `https://www.amazon.com${thumbnail}`;
+              }
+              break;
+            }
+          }
+          
+          // Extract video URL
+          let videoUrl = '';
+          let m3u8Url = '';
+          
+          const urlPatterns = [
+            /data-video-url="([^"]+)"/i,
+            /href="([^"]*video[^"]*)"/i,
+            /onclick="[^"]*openVideo\('([^']+)'/i
+          ];
+          
+          for (const urlPattern of urlPatterns) {
+            const urlMatch = matchedContent.match(urlPattern);
+            if (urlMatch && urlMatch[1]) {
+              videoUrl = urlMatch[1].trim();
+              if (!videoUrl.startsWith('http') && videoUrl !== '#') {
+                videoUrl = `https://www.amazon.com${videoUrl}`;
+              }
+              break;
+            }
+          }
+          
+          // Look for m3u8 streams
+          const m3u8Patterns = [
+            /"videoUrl"\s*:\s*"([^"]*\.m3u8[^"]*)"/g,
+            /data-video-config="[^"]*videoUrl[^"]*:([^"]*\.m3u8[^"]*)"/i,
+            /"([^"]*\.m3u8[^"]*)"/g
+          ];
+          
+          for (const m3u8Pattern of m3u8Patterns) {
+            const m3u8Match = matchedContent.match(m3u8Pattern);
+            if (m3u8Match && m3u8Match[1]) {
+              m3u8Url = m3u8Match[1].trim();
+              break;
+            }
+          }
+          
+          // Extract duration if available
+          let duration = '';
+          const durationMatch = matchedContent.match(/(\d+:\d+)/);
+          if (durationMatch) {
+            duration = durationMatch[1];
+          }
+          
+          // Extract views if available
+          let views = '';
+          const viewsMatch = matchedContent.match(/(\d+(?:,\d+)*)\s*views?/i);
+          if (viewsMatch) {
+            views = viewsMatch[1];
           }
 
-          if (thumbnail || videoUrl) {
+          if (title || thumbnail || videoUrl || m3u8Url) {
             videos.push({
-              title: title || `Product Video ${videos.length + 1}`,
+              title: title || 'Customer Review Video',
               url: videoUrl || '#',
               thumbnail: thumbnail || '/placeholder.svg',
-              type: 'customer' as const
+              m3u8Url: m3u8Url || undefined,
+              type: 'review' as const,
+              duration: duration || undefined,
+              views: views || undefined
             });
           }
         } catch (parseError) {
@@ -365,11 +433,36 @@ async function scrapeProductVideos(asin: string) {
         }
       }
     }
+    
+    // Also look for m3u8 URLs in script tags separately
+    const scriptPattern = /<script[^>]*>([\s\S]*?)<\/script>/g;
+    let scriptMatch;
+    while ((scriptMatch = scriptPattern.exec(html)) !== null && videos.length < 15) {
+      const scriptContent = scriptMatch[1];
+      const m3u8Matches = scriptContent.match(/"([^"]*\.m3u8[^"]*)"/g);
+      
+      if (m3u8Matches) {
+        m3u8Matches.forEach((match, index) => {
+          const m3u8Url = match.replace(/"/g, '');
+          if (m3u8Url && !videos.some(v => v.m3u8Url === m3u8Url)) {
+            videos.push({
+              title: `Amazon Video Stream ${index + 1}`,
+              url: '#',
+              thumbnail: '/placeholder.svg',
+              m3u8Url,
+              type: 'review' as const,
+              duration: undefined,
+              views: undefined
+            });
+          }
+        });
+      }
+    }
 
-    console.log('Found', videos.length, 'product videos');
-    return videos;
+    console.log('Found', videos.length, 'review videos');
+    return videos.slice(0, 8); // Limit to 8 videos
   } catch (error) {
-    console.error('Error scraping product videos:', error);
+    console.error('Error scraping review videos:', error);
     return [];
   }
 }

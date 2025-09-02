@@ -27,7 +27,9 @@ export interface ProductVideo {
   url: string;
   thumbnail: string;
   duration?: string;
-  type: 'customer' | 'brand' | 'promotional';
+  views?: string;
+  m3u8Url?: string;
+  type: 'customer' | 'brand' | 'promotional' | 'review';
 }
 
 export interface AnalysisResult {

@@ -4,10 +4,8 @@ import { ReviewInput } from "@/components/ReviewInput";
 import { AnalysisDisplay } from "@/components/AnalysisDisplay";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
-import { YouTubeSearchWidget } from "@/components/YouTubeSearchWidget";
 import { ReviewTips } from "@/components/ReviewTips";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { AIDetector } from "@/components/AIDetector";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle } from "lucide-react";
@@ -214,29 +212,12 @@ const Reviews = () => {
 
             <ReviewTips />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="max-w-2xl mx-auto">
               <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
-              <div data-component="youtube-search">
-                <YouTubeSearchWidget />
-              </div>
-            </div>
-
-            {/* AI Content Detector Section */}
-            <div className="max-w-4xl mx-auto">
-              <AIDetector context="general" />
             </div>
           </div>
         ) : (
-          <>
-            <AnalysisDisplay result={analysisResult} onReset={handleReset} />
-            
-            {/* YouTube Search Widget - Always rendered but hidden when analysis result is shown */}
-            <div className="mt-8">
-              <div data-component="youtube-search">
-                <YouTubeSearchWidget />
-              </div>
-            </div>
-          </>
+          <AnalysisDisplay result={analysisResult} onReset={handleReset} />
         )}
 
         {/* Footer */}

@@ -218,49 +218,83 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </CardContent>
           </Card>
 
-          {/* Product Videos Section */}
+          {/* Review Videos Section */}
           {result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ExternalLink className="h-5 w-5" />
-                  Product Videos from Amazon Listing
+                  Customer Review Videos from Amazon
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {result.realAnalysis.productVideos.map((video, index) => (
                     <div key={index} className="p-4 border rounded-lg space-y-3">
-                      <div className="aspect-video bg-gray-100 rounded overflow-hidden">
+                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative">
                         <img 
                           src={video.thumbnail} 
                           alt={video.title}
                           className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => video.url !== '#' && window.open(video.url, '_blank')}
+                          onClick={() => {
+                            if (video.m3u8Url) {
+                              // Open m3u8 stream in new tab
+                              window.open(video.m3u8Url, '_blank');
+                            } else if (video.url !== '#') {
+                              window.open(video.url, '_blank');
+                            }
+                          }}
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.src = "/placeholder.svg";
                           }}
                         />
+                        {video.duration && (
+                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            {video.duration}
+                          </div>
+                        )}
+                        {video.m3u8Url && (
+                          <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                            HLS Stream
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h4 className="font-medium text-sm mb-1">{video.title}</h4>
-                        <Badge variant="outline" className="text-xs">
-                          {video.type === 'customer' ? 'Customer Video' : 
-                           video.type === 'brand' ? 'Brand Video' : 'Promotional'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            Customer Review Video
+                          </Badge>
+                          {video.views && (
+                            <span className="text-xs text-muted-foreground">{video.views}</span>
+                          )}
+                        </div>
                       </div>
-                      {video.url !== '#' && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full flex items-center gap-2"
-                          onClick={() => window.open(video.url, '_blank')}
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Watch Video
-                        </Button>
-                      )}
+                      <div className="space-y-2">
+                        {video.m3u8Url && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="w-full flex items-center gap-2"
+                            onClick={() => window.open(video.m3u8Url, '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Play Stream (M3U8)
+                          </Button>
+                        )}
+                        {video.url !== '#' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full flex items-center gap-2"
+                            onClick={() => window.open(video.url, '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View on Amazon
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -268,73 +302,6 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </Card>
           )}
 
-          {/* AI-Curated Online Videos Section */}
-          {result.realAnalysis?.onlineVideos && result.realAnalysis.onlineVideos.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  AI-Curated Product Videos
-                  <Badge variant="outline" className="ml-2">Powered by Gemini</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  These videos were intelligently selected by AI based on relevance to your specific product.
-                </p>
-                <div className="space-y-4">
-                  {result.realAnalysis.onlineVideos.slice(0, 4).map((video, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-3">
-                      <div className="flex items-start gap-4">
-                        <div className="w-32 h-20 bg-gray-100 rounded overflow-hidden flex-shrink-0 relative">
-                          <img 
-                            src={video.thumbnail} 
-                            alt={video.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = "/placeholder.svg";
-                            }}
-                          />
-                          <div className="absolute top-1 right-1 bg-black/70 text-white text-xs px-1 rounded">
-                            {video.relevanceScore}%
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-sm mb-1 line-clamp-2">{video.title}</h4>
-                          <p className="text-xs text-slate-600 mb-2">{video.channel}</p>
-                          <p className="text-xs text-slate-500 line-clamp-2">{video.description}</p>
-                          {video.aiReasoning && (
-                            <p className="text-xs text-blue-600 mt-2 italic">
-                              🤖 AI: {video.aiReasoning}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="w-full flex items-center gap-2"
-                        onClick={() => window.open(video.url, '_blank')}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Watch on {video.platform}
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  {result.realAnalysis.onlineVideos.length > 4 && (
-                    <div className="text-center pt-4">
-                      <p className="text-sm text-slate-600">
-                        Showing 4 of {result.realAnalysis.onlineVideos.length} AI-curated videos
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
 
           {/* Individual Reviews Analysis */}
@@ -469,17 +436,6 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                     View on Amazon
                   </Button>
                   
-                  <Button 
-                    variant="default" 
-                    className="w-full flex items-center gap-2"
-                    onClick={() => {
-                      const query = `${result.productInfo.title} review`;
-                      navigate(`/youtube-search?query=${encodeURIComponent(query)}`);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Videos on This Product
-                  </Button>
                 </div>
               </div>
             </CardContent>
