@@ -7,7 +7,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { InstallationGuide } from "@/components/InstallationGuide";
-import { Shield, Users, BarChart3, Youtube } from "lucide-react";
+import { Shield, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -81,11 +81,10 @@ const Index = () => {
           <div className="bg-card rounded-xl p-6 shadow-sm border">
             <h2 className="text-xl font-semibold mb-4">Welcome to Amazon Review Spotter</h2>
             <p className="text-muted-foreground mb-6">
-              Choose from our suite of tools to analyze Amazon product reviews, detect AI-generated content, 
-              and research products through YouTube reviews.
+              Analyze Amazon product reviews for authenticity and view customer review videos directly from Amazon.
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Review Analysis Card */}
               <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.open('/reviews', '_self')}>
                 <CardHeader>
@@ -122,23 +121,6 @@ const Index = () => {
                 </CardContent>
               </Card>
 
-              {/* YouTube Search Card */}
-              <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => window.open('/youtube-search', '_self')}>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Youtube className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">YouTube Research</CardTitle>
-                  </div>
-                  <CardDescription>
-                    Search for product reviews on YouTube and discover authentic opinions
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="outline" className="w-full">
-                    Search YouTube
-                  </Button>
-                </CardContent>
-              </Card>
             </div>
           </div>
 
