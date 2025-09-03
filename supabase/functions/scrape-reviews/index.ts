@@ -96,6 +96,10 @@ serve(async (req) => {
       analysis: realData.analysis,
       reviews: realData.reviews,
       productVideos: realData.productVideos || [],
+      debug: {
+        videosFound: realData.productVideos?.length || 0,
+        videoTitles: realData.productVideos?.map(v => v.title) || []
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

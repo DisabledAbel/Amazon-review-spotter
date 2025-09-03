@@ -46,6 +46,12 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
       throw error;
     }
 
+    console.log('Scraping result received:', {
+      success: scrapingResult.success,
+      videosCount: scrapingResult.productVideos?.length || 0,
+      videoTitles: scrapingResult.productVideos?.map(v => v.title) || []
+    });
+
     if (!scrapingResult.success) {
       throw new Error(scrapingResult.error || 'Failed to scrape reviews');
     }
