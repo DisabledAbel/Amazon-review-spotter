@@ -218,11 +218,11 @@ function parseAmazonHTML(html: string, asin: string): ReviewData[] {
           
           // Title extraction
           const title = extractPattern(reviewBlock, [
-            /data-hook="review-title"[^>]*><span[^>]*>([^<]+)</i,
-            /class="[^"]*review-title[^"]*"[^>]*><span[^>]*>([^<]+)</i,
+            /data-hook="review-title"[^>]*><span[^>]*>([^<]+)<\/span>/i,
+            /class="[^"]*review-title[^"]*"[^>]*><span[^>]*>([^<]+)<\/span>/i,
             /class="[^"]*review-title[^"]*"[^>]*>([^<]+)</i,
-            /<h\d[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</i,
-            /<strong[^>]*>([^<]+)</strong>/i
+            /<h\d[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/h\d>/i,
+            /<strong[^>]*>([^<]+)<\/strong>/i
           ]);
           
           // Content extraction
