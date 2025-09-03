@@ -168,47 +168,92 @@ function parseAmazonHTML(html: string, asin: string): ReviewData[] {
   const reviews: ReviewData[] = [];
   
   try {
-    // Look for review containers using various patterns
+    console.log('Starting HTML parsing...');
+    
+    // More comprehensive review container patterns
     const reviewPatterns = [
-      /<div[^>]*data-hook="review"[^>]*>([\s\S]*?)<\/div>(?=\s*<div[^>]*data-hook="review"|$)/g,
-      /<div[^>]*class="[^"]*review[^"]*"[^>]*>([\s\S]*?)<\/div>/g
+      // Main review containers
+      /<div[^>]*data-hook="review"[^>]*>([\s\S]*?)(?=<div[^>]*data-hook="review"|<\/div>\s*<\/div>\s*$)/g,
+      /<div[^>]*class="[^"]*review[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*review"|$)/g,
+      /<div[^>]*id="[^"]*review[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*id="[^"]*review"|$)/g,
+      // Alternative patterns for Amazon's changing structure
+      /<article[^>]*>([\s\S]*?)<\/article>/g,
+      /<section[^>]*class="[^"]*review[^"]*"[^>]*>([\s\S]*?)<\/section>/g
     ];
 
     for (const pattern of reviewPatterns) {
       let match;
+      console.log('Trying pattern:', pattern.source.substring(0, 50) + '...');
+      
       while ((match = pattern.exec(html)) !== null && reviews.length < 20) {
         const reviewBlock = match[1] || match[0];
+        console.log('Found potential review block, length:', reviewBlock.length);
         
         try {
-          // Extract review data
+          // More comprehensive author extraction
           const author = extractPattern(reviewBlock, [
             /class="[^"]*profile-name[^"]*"[^>]*>([^<]+)</i,
-            /data-hook="review-author"[^>]*>([^<]+)</i
+            /data-hook="review-author"[^>]*>([^<]+)</i,
+            /class="[^"]*author[^"]*"[^>]*>([^<]+)</i,
+            /<span[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)</i,
+            /by\s+<[^>]+>([^<]+)</i
           ]);
           
-          const ratingMatch = reviewBlock.match(/(\d+(?:\.\d+)?)\s*out of 5 stars/i);
-          const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+          // Rating extraction with multiple patterns
+          const ratingPatterns = [
+            /(\d+(?:\.\d+)?)\s*out of 5 stars/i,
+            /(\d+(?:\.\d+)?)\s*\/\s*5/i,
+            /rating-(\d+)/i,
+            /stars-(\d+)/i
+          ];
           
+          let rating = null;
+          for (const ratingPattern of ratingPatterns) {
+            const ratingMatch = reviewBlock.match(ratingPattern);
+            if (ratingMatch) {
+              rating = parseFloat(ratingMatch[1]);
+              break;
+            }
+          }
+          
+          // Title extraction
           const title = extractPattern(reviewBlock, [
             /data-hook="review-title"[^>]*><span[^>]*>([^<]+)</i,
-            /class="[^"]*review-title[^"]*"[^>]*>([^<]+)</i
+            /class="[^"]*review-title[^"]*"[^>]*><span[^>]*>([^<]+)</i,
+            /class="[^"]*review-title[^"]*"[^>]*>([^<]+)</i,
+            /<h\d[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)</i,
+            /<strong[^>]*>([^<]+)</strong>/i
           ]);
           
+          // Content extraction
           const content = extractPattern(reviewBlock, [
             /data-hook="review-body"[^>]*><span[^>]*>([^<]+)</i,
-            /class="[^"]*review-text[^"]*"[^>]*>([^<]+)</i
+            /class="[^"]*review-text[^"]*"[^>]*><span[^>]*>([^<]+)</i,
+            /class="[^"]*review-text[^"]*"[^>]*>([^<]+)</i,
+            /class="[^"]*review-body[^"]*"[^>]*>([^<]+)</i,
+            /<p[^>]*class="[^"]*review[^"]*"[^>]*>([^<]+)</i
           ]);
           
+          // Date extraction
           const dateStr = extractPattern(reviewBlock, [
             /data-hook="review-date"[^>]*>([^<]+)</i,
-            /Reviewed in [^<]+ on ([^<]+)</i
+            /Reviewed in [^<]+ on ([^<]+)</i,
+            /class="[^"]*date[^"]*"[^>]*>([^<]+)</i,
+            /on\s+([A-Z][a-z]+ \d+, \d{4})/i
           ]);
           
-          const verified = reviewBlock.includes('Verified Purchase');
+          const verified = reviewBlock.includes('Verified Purchase') || reviewBlock.includes('verified');
           const helpfulMatch = reviewBlock.match(/(\d+)\s+people found this helpful/i);
           const helpful = helpfulMatch ? parseInt(helpfulMatch[1]) : 0;
 
-          if (author && rating && title && content) {
+          console.log('Extracted data:', { 
+            author: author?.substring(0, 20), 
+            rating, 
+            title: title?.substring(0, 30), 
+            content: content?.substring(0, 30) 
+          });
+
+          if (author && rating && title && content && content.length > 10) {
             const suspiciousPatterns = detectRealSuspiciousPatterns({
               author, title, content, rating, verified
             });
@@ -226,12 +271,16 @@ function parseAmazonHTML(html: string, asin: string): ReviewData[] {
               suspiciousPatterns,
               authenticityScore: calculateRealAuthenticityScore(suspiciousPatterns, verified, helpful, content)
             });
+            
+            console.log('Successfully parsed review:', reviews.length);
           }
         } catch (parseError) {
           console.log('Error parsing individual review:', parseError);
         }
       }
     }
+    
+    console.log('Total reviews parsed:', reviews.length);
   } catch (error) {
     console.error('HTML parsing error:', error);
   }
