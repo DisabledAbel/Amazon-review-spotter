@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
   loading: boolean;
 }
@@ -13,7 +12,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
-  signInWithGitHub: async () => {},
   signOut: async () => {},
   loading: true,
 });
@@ -55,30 +53,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signInWithGitHub = async () => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'github',
-        options: {
-          redirectTo: redirectUrl
-        }
-      });
-      
-      if (error) {
-        console.error('GitHub sign in error:', error);
-        // Check if GitHub OAuth is not configured
-        if (error.message.includes('OAuth') || error.message.includes('provider')) {
-          alert('GitHub OAuth is not configured in Supabase. Please configure it in the Auth settings.');
-        }
-        throw error;
-      }
-    } catch (err) {
-      console.error('Unexpected error during GitHub sign in:', err);
-      throw err;
-    }
-  };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -91,7 +65,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const value: AuthContextType = {
     user,
     session,
-    signInWithGitHub,
     signOut,
     loading,
   };

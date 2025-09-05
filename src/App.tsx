@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
 import Reviews from "./pages/Reviews";
 import HistoricalAnalysis from "./pages/HistoricalAnalysis";
 import YouTubeSearchPage from "./pages/YouTubeSearch";
@@ -23,6 +24,7 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
               <Route path="/reviews" element={<Reviews />} />
               <Route path="/historical-analysis" element={<HistoricalAnalysis />} />
               <Route path="/youtube-search" element={<YouTubeSearchPage />} />

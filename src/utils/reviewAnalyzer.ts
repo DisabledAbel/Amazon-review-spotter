@@ -142,23 +142,16 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
 
 const saveToHistory = async (analysisResult: AnalysisResult, productUrl: string) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const authenticityScore = Math.round((analysisResult.genuinenessScore || 0) * 10);
-    const totalReviews = analysisResult.realAnalysis?.totalReviews || 0;
-    const individualReviews = analysisResult.realAnalysis?.individualReviews || [];
-    const fakeCount = individualReviews.filter(r => r.authenticityScore < 50).length;
-
-    await supabase.from('analysis_history').insert({
-      user_id: user.id,
+    // Save to localStorage instead of database
+    const productData = {
+      id: Date.now().toString(),
       product_url: productUrl,
       asin: analysisResult.productInfo?.asin,
       product_title: analysisResult.productInfo?.title,
-      analysis_score: authenticityScore,
+      analysis_score: Math.round((analysisResult.genuinenessScore || 0) * 10),
       analysis_verdict: analysisResult.finalVerdict,
-      total_reviews: totalReviews,
-      fake_review_count: fakeCount,
+      total_reviews: analysisResult.realAnalysis?.totalReviews || 0,
+      fake_review_count: analysisResult.realAnalysis?.individualReviews?.filter(r => r.authenticityScore < 50).length || 0,
       confidence_score: Math.random() * 0.3 + 0.7, // Simulate confidence 70-100%
       analysis_data: JSON.parse(JSON.stringify({
         redFlags: analysisResult.redFlags,
@@ -178,8 +171,13 @@ const saveToHistory = async (analysisResult: AnalysisResult, productUrl: string)
           }))
         } : null,
         scoreExplanation: analysisResult.scoreExplanation
-      }))
-    });
+      })),
+      created_at: new Date().toISOString()
+    };
+
+    const savedProducts = JSON.parse(localStorage.getItem('saved_products') || '[]');
+    savedProducts.push(productData);
+    localStorage.setItem('saved_products', JSON.stringify(savedProducts));
   } catch (error) {
     console.error('Error saving to history:', error);
     // Don't throw here to avoid breaking the main analysis flow

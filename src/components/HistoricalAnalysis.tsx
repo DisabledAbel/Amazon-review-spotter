@@ -58,20 +58,15 @@ export const HistoricalAnalysis = () => {
   const fetchHistoricalData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('analysis_history')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const data = JSON.parse(localStorage.getItem('saved_products') || '[]');
 
-      if (error) throw error;
-
-      setHistoricalData((data || []).map(item => ({
+      setHistoricalData(data.map((item: any) => ({
         ...item,
         analyzed_at: item.created_at
       })));
       
       // Group products and count analyses
-      const productGroups = (data || []).reduce((acc: Record<string, { title: string; count: number }>, item) => {
+      const productGroups = data.reduce((acc: Record<string, { title: string; count: number }>, item: any) => {
         const key = item.product_url;
         if (!acc[key]) {
           acc[key] = {
@@ -83,10 +78,10 @@ export const HistoricalAnalysis = () => {
         return acc;
       }, {});
 
-      const productList = Object.entries(productGroups).map(([url, { title, count }]) => ({
+      const productList = Object.entries(productGroups).map(([url, data]) => ({
         url,
-        title,
-        count
+        title: (data as any).title,
+        count: (data as any).count
       }));
 
       setProducts(productList);

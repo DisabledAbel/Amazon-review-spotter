@@ -46,13 +46,8 @@ export const AppSidebar = () => {
   const fetchSavedProducts = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('analysis_history')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      setSavedProducts((data || []).map(item => ({
+      const data = JSON.parse(localStorage.getItem('saved_products') || '[]');
+      setSavedProducts(data.map((item: any) => ({
         ...item,
         saved_at: item.created_at
       })));
@@ -70,12 +65,9 @@ export const AppSidebar = () => {
 
   const deleteSavedProduct = async (id: string) => {
     try {
-    const { error } = await supabase
-      .from('analysis_history')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
+      const data = JSON.parse(localStorage.getItem('saved_products') || '[]');
+      const filtered = data.filter((item: any) => item.id !== id);
+      localStorage.setItem('saved_products', JSON.stringify(filtered));
       
       setSavedProducts(prev => prev.filter(p => p.id !== id));
       toast({
@@ -128,7 +120,7 @@ export const AppSidebar = () => {
                 <div className="flex-1">
                   <p className="font-medium">{user?.user_metadata?.full_name || user?.email}</p>
                   <p className="text-sm text-muted-foreground">
-                    @{user?.user_metadata?.user_name || 'github-user'}
+                    {user?.email}
                   </p>
                 </div>
               </div>

@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, Github, Zap, Eye, Star, CheckCircle } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Shield, Zap, Eye, Star, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export const LandingPage = () => {
-  const { signInWithGitHub } = useAuth();
+  const navigate = useNavigate();
 
   const features = [
     {
@@ -60,16 +60,15 @@ export const LandingPage = () => {
               </p>
               
               <Button 
-                onClick={signInWithGitHub}
+                onClick={() => navigate('/auth')}
                 size="lg" 
                 className="h-14 px-8 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                <Github className="mr-2 h-5 w-5" />
-                Sign up with GitHub
+                Get Started Free
               </Button>
               
               <p className="text-sm text-muted-foreground">
-                Free forever • No credit card required • Secure GitHub OAuth
+                Free forever • No credit card required • Secure email authentication
               </p>
             </div>
           </div>
@@ -161,7 +160,7 @@ export const LandingPage = () => {
             {[
               { icon: <CheckCircle className="h-6 w-6" />, text: "Real-time analysis" },
               { icon: <CheckCircle className="h-6 w-6" />, text: "No fake data simulation" },
-              { icon: <CheckCircle className="h-6 w-6" />, text: "Secure GitHub authentication" }
+              { icon: <CheckCircle className="h-6 w-6" />, text: "Secure email authentication" }
             ].map((item, index) => (
               <div key={index} className="flex items-center gap-3 justify-center text-lg">
                 <div className="text-green-500">{item.icon}</div>
@@ -171,12 +170,11 @@ export const LandingPage = () => {
           </div>
 
           <Button 
-            onClick={signInWithGitHub}
+            onClick={() => navigate('/auth')}
             size="lg" 
             variant="outline"
             className="h-12 px-6 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           >
-            <Github className="mr-2 h-4 w-4" />
             Get Started Now
           </Button>
         </div>
