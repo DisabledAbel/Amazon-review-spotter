@@ -1,7 +1,1 @@
-project_id = "drbngqxlxwabzphoitib"
-
-[functions.youtube-search]
-verify_jwt = false
-
-[functions.gemini-video-scan]
-verify_jwt = false
+project_id = "ukgopnnfsqjefxkfjrrv"
