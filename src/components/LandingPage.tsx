@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Shield, Github, Zap, Eye, Star, CheckCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 export const LandingPage = () => {
-  const navigate = useNavigate();
+  const { signInWithGitHub } = useAuth();
 
   const features = [
     {
@@ -60,15 +60,16 @@ export const LandingPage = () => {
               </p>
               
               <Button 
-                onClick={() => navigate("/auth")}
+                onClick={signInWithGitHub}
                 size="lg" 
                 className="h-14 px-8 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Get Started Free
+                <Github className="mr-2 h-5 w-5" />
+                Sign up with GitHub
               </Button>
               
               <p className="text-sm text-muted-foreground">
-                Free forever • No credit card required • Email or GitHub signup
+                Free forever • No credit card required • Secure GitHub OAuth
               </p>
             </div>
           </div>
@@ -170,11 +171,12 @@ export const LandingPage = () => {
           </div>
 
           <Button 
-            onClick={() => navigate("/auth")}
+            onClick={signInWithGitHub}
             size="lg" 
             variant="outline"
             className="h-12 px-6 border-primary text-primary hover:bg-primary hover:text-primary-foreground"
           >
+            <Github className="mr-2 h-4 w-4" />
             Get Started Now
           </Button>
         </div>

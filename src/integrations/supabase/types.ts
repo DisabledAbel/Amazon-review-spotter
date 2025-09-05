@@ -14,57 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      analysis_history: {
-        Row: {
-          analysis_data: Json | null
-          analysis_score: number
-          analysis_verdict: string
-          asin: string
-          confidence_score: number
-          created_at: string
-          fake_review_count: number
-          id: string
-          product_image: string | null
-          product_title: string
-          product_url: string
-          total_reviews: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          analysis_data?: Json | null
-          analysis_score: number
-          analysis_verdict: string
-          asin: string
-          confidence_score?: number
-          created_at?: string
-          fake_review_count?: number
-          id?: string
-          product_image?: string | null
-          product_title: string
-          product_url: string
-          total_reviews?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          analysis_data?: Json | null
-          analysis_score?: number
-          analysis_verdict?: string
-          asin?: string
-          confidence_score?: number
-          created_at?: string
-          fake_review_count?: number
-          id?: string
-          product_image?: string | null
-          product_title?: string
-          product_url?: string
-          total_reviews?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
