@@ -93,6 +93,7 @@ Return ONLY compact JSON (no prose): an array of objects with fields:
               parts: [{ text: prompt }],
             },
           ],
+          tools: [{ googleSearch: {} }],
           generationConfig: {
             temperature: 0.2,
             topP: 0.8,

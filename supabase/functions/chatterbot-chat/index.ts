@@ -90,7 +90,7 @@ ${youtubeVideos.map((video: any, index: number) =>
           }
         }
 
-        // Use Google Gemini API
+        // Use Google Gemini API with Google Search grounding
         const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: {
@@ -102,6 +102,7 @@ ${youtubeVideos.map((video: any, index: number) =>
                 text: `${systemPrompt}${contextMessage}\n\nUser: ${sanitizedMessage}`
               }]
             }],
+            tools: [{ googleSearch: {} }],
             generationConfig: {
               temperature: 0.7,
               topK: 40,

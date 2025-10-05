@@ -112,6 +112,7 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
           role: 'user',
           parts: [{ text: prompt }]
         }],
+        tools: [{ googleSearch: {} }],
         generationConfig: {
           temperature: 0.3,
           topP: 0.8,
@@ -208,6 +209,7 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
           role: 'user',
           parts: [{ text: prompt }]
         }],
+        tools: [{ googleSearch: {} }],
         generationConfig: {
           temperature: 0.2,
           topP: 0.8,
