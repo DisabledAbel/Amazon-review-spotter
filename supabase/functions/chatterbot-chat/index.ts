@@ -43,6 +43,7 @@ serve(async (req) => {
     const sanitizedMessage = message.trim().substring(0, 1000);
     
     let response: string;
+    let youtubeVideos: any[] = []; // Declare in outer scope
 
     // Check if Google Gemini API is configured
     if (geminiApiKey) {
@@ -60,7 +61,6 @@ serve(async (req) => {
         Keep responses helpful, concise, and focused on review authenticity.`;
 
         let contextMessage = '';
-        let youtubeVideos: any[] = [];
         
         if (productContext) {
           contextMessage = `\n\nCurrent product context:
@@ -91,7 +91,7 @@ ${youtubeVideos.map((video: any, index: number) =>
         }
 
         // Use Google Gemini API with Google Search grounding
-        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
