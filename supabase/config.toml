@@ -1,1 +1,22 @@
 project_id = "ukgopnnfsqjefxkfjrrv"
+
+[functions.chatterbot-chat]
+verify_jwt = true
+
+[functions.gemini-video-finder]
+verify_jwt = false
+
+[functions.gemini-video-scan]
+verify_jwt = false
+
+[functions.youtube-search]
+verify_jwt = false
+
+[functions.scrape-reviews]
+verify_jwt = false
+
+[functions.amazon-chat]
+verify_jwt = true
+
+[functions.ai-detector]
+verify_jwt = false

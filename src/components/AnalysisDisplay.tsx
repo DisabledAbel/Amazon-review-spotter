@@ -19,7 +19,8 @@ import {
   Eye,
   ExternalLink,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -34,6 +35,8 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [youtubeVideos, setYoutubeVideos] = useState<any[]>([]);
+  const [loadingVideos, setLoadingVideos] = useState(false);
 
   // Store product context for chatbot using secure storage
   useEffect(() => {
@@ -47,6 +50,39 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
       secureStorage.setProductAnalysis(productContext);
     }
   }, [result]);
+
+  // Automatically find YouTube videos when product is analyzed
+  useEffect(() => {
+    const findVideos = async () => {
+      if (!result?.productInfo?.title) return;
+      
+      setLoadingVideos(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('gemini-video-finder', {
+          body: {
+            productTitle: result.productInfo.title,
+            productAsin: result.productInfo.asin
+          }
+        });
+
+        if (error) throw error;
+        
+        if (data?.videos && data.videos.length > 0) {
+          setYoutubeVideos(data.videos);
+          toast({
+            title: "Videos Found!",
+            description: `Found ${data.videos.length} relevant YouTube reviews for this product`
+          });
+        }
+      } catch (error) {
+        console.error('Error finding videos:', error);
+      } finally {
+        setLoadingVideos(false);
+      }
+    };
+
+    findVideos();
+  }, [result, toast]);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-green-600";
@@ -218,6 +254,80 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </CardContent>
           </Card>
 
+          {/* YouTube Videos Section - Auto-discovered by Gemini AI */}
+          {(loadingVideos || youtubeVideos.length > 0) && (
+            <Card className="border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5 text-purple-600" />
+                  🤖 AI-Discovered YouTube Reviews
+                  <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-300">
+                    Powered by Gemini
+                  </Badge>
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Gemini AI automatically searched and ranked the most relevant YouTube reviews for this product
+                </p>
+              </CardHeader>
+              <CardContent>
+                {loadingVideos ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-3">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                      <p className="text-sm text-muted-foreground">Gemini AI is searching YouTube for relevant reviews...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {youtubeVideos.map((video, index) => (
+                      <div key={index} className="p-4 border rounded-lg space-y-3 bg-white hover:shadow-md transition-shadow">
+                        <div className="aspect-video bg-gray-100 rounded overflow-hidden relative cursor-pointer"
+                             onClick={() => window.open(video.url, '_blank')}>
+                          <img 
+                            src={video.thumbnail} 
+                            alt={video.title}
+                            className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "/placeholder.svg";
+                            }}
+                          />
+                          <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                            {video.relevanceScore}% Match
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm mb-1 line-clamp-2">{video.title}</h4>
+                          <p className="text-xs text-muted-foreground mb-2">{video.channel}</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              YouTube
+                            </Badge>
+                            <span className="text-xs text-green-600 font-medium">
+                              {video.relevanceScore}% relevant
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {video.aiReasoning}
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full flex items-center gap-2"
+                          onClick={() => window.open(video.url, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Watch on YouTube
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* Review Videos Section */}
           {result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0 && (
             <Card>
@@ -238,7 +348,6 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                           className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => {
                             if (video.m3u8Url) {
-                              // Open m3u8 stream in new tab
                               window.open(video.m3u8Url, '_blank');
                             } else if (video.url !== '#') {
                               window.open(video.url, '_blank');
