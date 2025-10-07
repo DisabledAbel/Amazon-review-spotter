@@ -140,18 +140,32 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
 async function searchYouTubeVideos(query: string) {
   try {
     // Use Gemini with Google Search to find YouTube videos
-    const prompt = `Search YouTube for videos about: "${query}"
-    
-    Find real YouTube videos that match this search query. For each video found, provide:
-    - Video ID (from the YouTube URL)
-    - Full title
-    - Channel name
-    - Brief description
-    - Thumbnail URL
-    - YouTube URL
-    
-    Return ONLY a JSON array of video objects, maximum 10 videos:
-    [{"id": "video_id", "title": "...", "channel": "...", "description": "...", "thumbnail": "...", "url": "https://www.youtube.com/watch?v=..."}]`;
+    const prompt = `Search YouTube for: "${query}"
+
+Find 5-10 actual YouTube videos. Use Google Search with "site:youtube.com" to find real videos.
+
+For EACH video you find, extract:
+1. Video ID from the URL (the part after "watch?v=")
+2. Video title
+3. Channel name
+4. Description snippet
+5. Full YouTube URL
+
+Return a JSON array like this:
+[
+  {
+    "id": "abc123",
+    "title": "Product Review Video Title",
+    "channel": "Channel Name",
+    "description": "Video description...",
+    "thumbnail": "https://i.ytimg.com/vi/abc123/mqdefault.jpg",
+    "url": "https://www.youtube.com/watch?v=abc123"
+  }
+]
+
+IMPORTANT: Use real YouTube video data from your search results. The thumbnail URL should use the pattern: https://i.ytimg.com/vi/VIDEO_ID/mqdefault.jpg`;
+
+    console.log(`Searching for: ${query}`);
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
@@ -175,12 +189,16 @@ async function searchYouTubeVideos(query: string) {
     );
 
     if (!response.ok) {
-      console.log('Gemini search error:', await response.text());
+      const errorText = await response.text();
+      console.error('Gemini search error:', errorText);
       return [];
     }
 
     const data = await response.json();
+    console.log('Gemini response:', JSON.stringify(data, null, 2));
+    
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+    console.log('Extracted text:', text);
     
     try {
       const videos = JSON.parse(text);
@@ -188,8 +206,14 @@ async function searchYouTubeVideos(query: string) {
       return Array.isArray(videos) ? videos : [];
     } catch (parseError) {
       console.error('Failed to parse video results:', parseError);
+      console.error('Raw text:', text);
       return [];
     }
+  } catch (error) {
+    console.error('YouTube search error:', error);
+    return [];
+  }
+}
   } catch (error) {
     console.error('YouTube search error:', error);
     return [];

@@ -255,8 +255,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
           </Card>
 
           {/* YouTube Videos Section - Auto-discovered by Gemini AI */}
-          {(loadingVideos || youtubeVideos.length > 0) && (
-            <Card className="border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
+          <Card className="border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ExternalLink className="h-5 w-5 text-purple-600" />
@@ -276,6 +275,11 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                       <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
                       <p className="text-sm text-muted-foreground">Gemini AI is searching YouTube for relevant reviews...</p>
                     </div>
+                  </div>
+                ) : youtubeVideos.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No YouTube reviews found for this product yet.</p>
+                    <p className="text-sm text-muted-foreground mt-2">Try searching manually or check back later.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -326,7 +330,6 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                 )}
               </CardContent>
             </Card>
-          )}
 
           {/* Review Videos Section */}
           {result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0 && (
