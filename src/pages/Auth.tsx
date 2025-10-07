@@ -17,7 +17,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user } = useAuth();
+const { user, continueAsGuest } = useAuth();
 
   // Redirect if already logged in
   useEffect(() => {
@@ -172,7 +172,7 @@ export default function Auth() {
 
               <Button
                 variant="outline"
-                onClick={() => navigate('/')}
+                onClick={() => { continueAsGuest(); navigate('/reviews'); }}
                 className="w-full"
               >
                 Continue without signing up

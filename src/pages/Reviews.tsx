@@ -12,7 +12,7 @@ import { Shield, Search, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Reviews = () => {
-  const { user, loading } = useAuth();
+const { user, loading, isGuest } = useAuth();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
@@ -81,15 +81,15 @@ const Reviews = () => {
   }, []);
 
   const handleAnalyze = async (reviewData: ReviewData) => {
-    // Validate user authentication before analysis
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to analyze product reviews.",
-        variant: "destructive"
-      });
-      return;
-    }
+// Validate authentication before analysis
+if (!user && !isGuest) {
+  toast({
+    title: "Authentication Required",
+    description: "Please log in to analyze product reviews.",
+    variant: "destructive"
+  });
+  return;
+}
 
     setIsAnalyzing(true);
     
@@ -155,19 +155,19 @@ const Reviews = () => {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md mx-auto p-6">
-          <div className="p-3 bg-primary rounded-2xl shadow-lg w-fit mx-auto">
-            <Shield className="h-8 w-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold">Authentication Required</h1>
-          <p className="text-muted-foreground">Please log in to access the review analysis features.</p>
+if (!user && !isGuest) {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center space-y-4 max-w-md mx-auto p-6">
+        <div className="p-3 bg-primary rounded-2xl shadow-lg w-fit mx-auto">
+          <Shield className="h-8 w-8 text-primary-foreground" />
         </div>
+        <h1 className="text-2xl font-bold">Authentication Required</h1>
+        <p className="text-muted-foreground">Please log in to access the review analysis features.</p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-background">
