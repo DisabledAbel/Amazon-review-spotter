@@ -7,7 +7,6 @@ const corsHeaders = {
 };
 
 const GEMINI_API_KEY = Deno.env.get('GOOGLE_GEMINI_API_KEY');
-const YOUTUBE_API_KEY = Deno.env.get('YOUTUBE_API_KEY');
 
 interface VideoResult {
   title: string;
@@ -139,34 +138,58 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
 }
 
 async function searchYouTubeVideos(query: string) {
-  if (!YOUTUBE_API_KEY) {
-    console.log('No YouTube API key, skipping YouTube search');
-    return [];
-  }
-
   try {
+    // Use Gemini with Google Search to find YouTube videos
+    const prompt = `Search YouTube for videos about: "${query}"
+    
+    Find real YouTube videos that match this search query. For each video found, provide:
+    - Video ID (from the YouTube URL)
+    - Full title
+    - Channel name
+    - Brief description
+    - Thumbnail URL
+    - YouTube URL
+    
+    Return ONLY a JSON array of video objects, maximum 10 videos:
+    [{"id": "video_id", "title": "...", "channel": "...", "description": "...", "thumbnail": "...", "url": "https://www.youtube.com/watch?v=..."}]`;
+
     const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=10&order=relevance&key=${YOUTUBE_API_KEY}`
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{ text: prompt }]
+          }],
+          tools: [{ googleSearch: {} }],
+          generationConfig: {
+            temperature: 0.3,
+            topP: 0.8,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json"
+          }
+        })
+      }
     );
 
     if (!response.ok) {
-      console.log('YouTube API error:', await response.text());
+      console.log('Gemini search error:', await response.text());
       return [];
     }
 
     const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
     
-    const videos = (data.items || []).map((item: any) => ({
-      id: item.id.videoId,
-      title: item.snippet.title,
-      description: item.snippet.description,
-      thumbnail: item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url,
-      channel: item.snippet.channelTitle,
-      publishedAt: item.snippet.publishedAt,
-      url: `https://www.youtube.com/watch?v=${item.id.videoId}`
-    }));
-
-    return videos;
+    try {
+      const videos = JSON.parse(text);
+      console.log(`Found ${videos.length} videos for query: ${query}`);
+      return Array.isArray(videos) ? videos : [];
+    } catch (parseError) {
+      console.error('Failed to parse video results:', parseError);
+      return [];
+    }
   } catch (error) {
     console.error('YouTube search error:', error);
     return [];
