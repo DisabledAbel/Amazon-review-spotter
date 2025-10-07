@@ -142,28 +142,23 @@ async function searchYouTubeVideos(query: string) {
     // Use Gemini with Google Search to find YouTube videos
     const prompt = `Search YouTube for: "${query}"
 
-Find 5-10 actual YouTube videos. Use Google Search with "site:youtube.com" to find real videos.
+Find 5-8 real YouTube videos using Google Search.
 
-For EACH video you find, extract:
-1. Video ID from the URL (the part after "watch?v=")
-2. Video title
-3. Channel name
-4. Description snippet
-5. Full YouTube URL
+For EACH video, return this EXACT format (keep descriptions under 100 characters):
+{
+  "id": "VIDEO_ID",
+  "title": "Video Title",
+  "channel": "Channel Name",
+  "description": "Short description max 100 chars",
+  "thumbnail": "https://i.ytimg.com/vi/VIDEO_ID/mqdefault.jpg",
+  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
+}
 
-Return a JSON array like this:
-[
-  {
-    "id": "abc123",
-    "title": "Product Review Video Title",
-    "channel": "Channel Name",
-    "description": "Video description...",
-    "thumbnail": "https://i.ytimg.com/vi/abc123/mqdefault.jpg",
-    "url": "https://www.youtube.com/watch?v=abc123"
-  }
-]
-
-IMPORTANT: Use real YouTube video data from your search results. The thumbnail URL should use the pattern: https://i.ytimg.com/vi/VIDEO_ID/mqdefault.jpg`;
+CRITICAL RULES:
+1. Keep descriptions SHORT (under 100 characters)
+2. Escape all quotes in strings with backslash
+3. Return valid JSON array only
+4. Use exact YouTube URLs you find`;
 
     console.log(`Searching for: ${query}`);
 
@@ -179,7 +174,7 @@ IMPORTANT: Use real YouTube video data from your search results. The thumbnail U
           }],
           tools: [{ googleSearch: {} }],
           generationConfig: {
-            temperature: 0.3,
+            temperature: 0.2,
             topP: 0.8,
             maxOutputTokens: 2048,
             responseMimeType: "application/json"
@@ -195,20 +190,39 @@ IMPORTANT: Use real YouTube video data from your search results. The thumbnail U
     }
 
     const data = await response.json();
-    console.log('Gemini response:', JSON.stringify(data, null, 2));
-    
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-    console.log('Extracted text:', text);
+    
+    // Clean up the text before parsing - remove any truncated content
+    let cleanText = text.trim();
+    
+    // If text seems incomplete, try to fix it
+    if (!cleanText.endsWith(']')) {
+      console.log('JSON appears incomplete, attempting to fix...');
+      // Find the last complete object
+      const lastCompleteObj = cleanText.lastIndexOf('}');
+      if (lastCompleteObj > 0) {
+        cleanText = cleanText.substring(0, lastCompleteObj + 1) + ']';
+      }
+    }
     
     try {
-      const videos = JSON.parse(text);
+      const videos = JSON.parse(cleanText);
       console.log(`Found ${videos.length} videos for query: ${query}`);
-      return Array.isArray(videos) ? videos : [];
+      
+      // Ensure all videos have required fields
+      const validVideos = videos.filter((v: any) => v.id && v.title && v.url);
+      return Array.isArray(validVideos) ? validVideos : [];
     } catch (parseError) {
       console.error('Failed to parse video results:', parseError);
-      console.error('Raw text:', text);
+      console.error('Raw text length:', text.length);
+      console.error('First 500 chars:', text.substring(0, 500));
       return [];
     }
+  } catch (error) {
+    console.error('YouTube search error:', error);
+    return [];
+  }
+}
   } catch (error) {
     console.error('YouTube search error:', error);
     return [];
