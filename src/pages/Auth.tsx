@@ -158,6 +158,27 @@ export default function Auth() {
               </Button>
             </form>
 
+            <div className="mt-6 space-y-3">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Or
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => navigate('/')}
+                className="w-full"
+              >
+                Continue without signing up
+              </Button>
+            </div>
+
             <div className="mt-6 text-center">
               <Button
                 variant="link"
