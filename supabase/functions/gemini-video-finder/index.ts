@@ -214,11 +214,6 @@ IMPORTANT: Use real YouTube video data from your search results. The thumbnail U
     return [];
   }
 }
-  } catch (error) {
-    console.error('YouTube search error:', error);
-    return [];
-  }
-}
 
 async function analyzeVideoRelevance(productTitle: string, productAsin: string | undefined, videos: any[]): Promise<VideoResult[]> {
   if (videos.length === 0) return [];
