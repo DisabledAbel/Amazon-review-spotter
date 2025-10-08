@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { secureStorage } from "@/lib/secureStorage";
+import { AIAssistant } from "@/components/AIAssistant";
 import { 
   Brain, 
   AlertTriangle, 
@@ -20,7 +21,8 @@ import {
   ExternalLink,
   Bookmark,
   BookmarkCheck,
-  Loader2
+  Loader2,
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -37,6 +39,8 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   const [saving, setSaving] = useState(false);
   const [youtubeVideos, setYoutubeVideos] = useState<any[]>([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string>("");
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   // Store product context for chatbot using secure storage
   useEffect(() => {
@@ -83,6 +87,35 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
 
     findVideos();
   }, [result, toast]);
+
+  // Generate AI summary of reviews
+  useEffect(() => {
+    const generateSummary = async () => {
+      if (!result?.realAnalysis?.individualReviews || result.realAnalysis.individualReviews.length === 0) return;
+      
+      setLoadingSummary(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('analyze-reviews-ai', {
+          body: {
+            reviews: result.realAnalysis.individualReviews,
+            productTitle: result.productInfo.title
+          }
+        });
+
+        if (error) throw error;
+        
+        if (data?.success && data.analysis) {
+          setAiSummary(data.analysis);
+        }
+      } catch (error) {
+        console.error('Error generating AI summary:', error);
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+
+    generateSummary();
+  }, [result]);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-green-600";
@@ -254,14 +287,50 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
             </CardContent>
           </Card>
 
-          {/* YouTube Videos Section - Auto-discovered by Gemini AI */}
+          {/* AI-Powered Review Summary */}
+          {result.realAnalysis?.individualReviews && (
+            <Card className="border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  🤖 AI Review Insights
+                  <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-300">
+                    Powered by OpenRouter
+                  </Badge>
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  AI-generated comprehensive analysis of all reviews
+                </p>
+              </CardHeader>
+              <CardContent>
+                {loadingSummary ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                    <span className="ml-2 text-muted-foreground">Analyzing reviews with AI...</span>
+                  </div>
+                ) : aiSummary ? (
+                  <div className="prose prose-sm max-w-none">
+                    <div className="p-4 bg-white border border-blue-200 rounded-lg whitespace-pre-wrap">
+                      {aiSummary}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-4">
+                    No AI summary available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* YouTube Videos Section - Auto-discovered by AI */}
           <Card className="border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ExternalLink className="h-5 w-5 text-purple-600" />
                   🤖 AI-Discovered YouTube Reviews
                   <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-300">
-                    Powered by Gemini
+                    Powered by OpenRouter
                   </Badge>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
@@ -554,6 +623,9 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
           </Card>
         </div>
       </div>
+      
+      {/* AI Assistant Chatbot */}
+      <AIAssistant />
     </div>
   );
 };

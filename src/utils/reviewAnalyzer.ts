@@ -77,8 +77,8 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
       redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
     }
 
-    // Call Gemini video finder to get AI-curated videos
-    let geminiVideos = [];
+    // Call video finder (now using OpenRouter) to get AI-curated videos
+    let aiVideos = [];
     try {
       const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
         body: { 
@@ -88,11 +88,11 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
       });
       
       if (!videoError && videoData?.success) {
-        geminiVideos = videoData.videos || [];
-        console.log('Found', geminiVideos.length, 'AI-curated videos');
+        aiVideos = videoData.videos || [];
+        console.log('Found', aiVideos.length, 'AI-curated videos');
       }
     } catch (videoError) {
-      console.log('Gemini video finder failed, continuing without videos:', videoError);
+      console.log('AI video finder failed, continuing without videos:', videoError);
     }
 
     const result = {
@@ -118,7 +118,7 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
           suspiciousPatterns: review.suspiciousPatterns
         })),
         productVideos: scrapingResult.productVideos || [],
-        onlineVideos: geminiVideos.slice(0, 6) // Top 6 AI-curated videos
+        onlineVideos: aiVideos.slice(0, 6) // Top 6 AI-curated videos
       }
     };
 

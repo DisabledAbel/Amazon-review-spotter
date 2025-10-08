@@ -108,6 +108,10 @@ class SecureStorage {
     return this.setItem('current-product-analysis', validatedAnalysis);
   }
 
+  getProductAnalysis(): Record<string, unknown> | null {
+    return this.getItem<Record<string, unknown>>('current-product-analysis');
+  }
+
   private sanitizeProductAnalysis(analysis: Record<string, unknown>): Record<string, unknown> {
     const sanitized: Record<string, unknown> = {};
 

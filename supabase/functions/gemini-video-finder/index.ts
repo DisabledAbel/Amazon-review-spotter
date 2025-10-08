@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GEMINI_API_KEY = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 
 interface VideoResult {
   title: string;
@@ -26,9 +26,9 @@ serve(async (req) => {
   }
 
   try {
-    if (!GEMINI_API_KEY) {
+    if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ 
-        error: 'Missing GOOGLE_GEMINI_API_KEY' 
+        error: 'Missing OPENROUTER_API_KEY' 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -48,7 +48,7 @@ serve(async (req) => {
 
     console.log('Finding videos for product:', productTitle);
 
-    // Step 1: Generate intelligent search queries using Gemini
+    // Step 1: Generate intelligent search queries using OpenRouter
     const searchQueries = await generateSearchQueries(productTitle, productAsin);
     console.log('Generated search queries:', searchQueries);
 
@@ -59,7 +59,7 @@ serve(async (req) => {
       allVideos.push(...videos);
     }
 
-    // Step 3: Use Gemini to analyze and rank videos for relevance
+    // Step 3: Use OpenRouter to analyze and rank videos for relevance
     const rankedVideos = await analyzeVideoRelevance(productTitle, productAsin, allVideos);
 
     return new Response(JSON.stringify({
@@ -72,7 +72,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Error in gemini-video-finder:', error);
+    console.error('Error in video-finder:', error);
     return new Response(JSON.stringify({ 
       error: error.message 
     }), {
@@ -102,32 +102,33 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
   Return ONLY a JSON array of 5 strings, no explanation:`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+    'https://openrouter.ai/api/v1/chat/completions',
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://reviewdetective.app',
+        'X-Title': 'Review Detective'
+      },
       body: JSON.stringify({
-        contents: [{
+        model: 'openai/gpt-oss-20b:free',
+        messages: [{
           role: 'user',
-          parts: [{ text: prompt }]
+          content: prompt
         }],
-        tools: [{ googleSearch: {} }],
-        generationConfig: {
-          temperature: 0.3,
-          topP: 0.8,
-          maxOutputTokens: 512,
-          responseMimeType: "application/json"
-        }
+        temperature: 0.3,
+        max_tokens: 512
       })
     }
   );
 
   if (!response.ok) {
-    throw new Error('Failed to generate search queries with Gemini');
+    throw new Error('Failed to generate search queries with OpenRouter');
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+  const text = data?.choices?.[0]?.message?.content || '[]';
   
   try {
     // Remove markdown code fences if present
@@ -143,7 +144,7 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
 
 async function searchYouTubeVideos(query: string) {
   try {
-    // Use Gemini with Google Search to find YouTube videos
+    // Use OpenRouter with web search to find YouTube videos
     const prompt = `Search YouTube for: "${query}"
 
 Find 5-8 real YouTube videos using Google Search.
@@ -167,34 +168,35 @@ CRITICAL RULES:
     console.log(`Searching for: ${query}`);
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+      'https://openrouter.ai/api/v1/chat/completions',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://reviewdetective.app',
+          'X-Title': 'Review Detective'
+        },
         body: JSON.stringify({
-          contents: [{
+          model: 'openai/gpt-oss-20b:free',
+          messages: [{
             role: 'user',
-            parts: [{ text: prompt }]
+            content: prompt
           }],
-          tools: [{ googleSearch: {} }],
-          generationConfig: {
-            temperature: 0.2,
-            topP: 0.8,
-            maxOutputTokens: 2048,
-            responseMimeType: "application/json"
-          }
+          temperature: 0.2,
+          max_tokens: 2048
         })
       }
     );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini search error:', errorText);
+      console.error('OpenRouter search error:', errorText);
       return [];
     }
 
     const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+    const text = data?.choices?.[0]?.message?.content || '[]';
     
     // Clean up the text before parsing - remove markdown code blocks and truncated content
     let cleanText = text.trim()
@@ -257,28 +259,29 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
   }`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`,
+    'https://openrouter.ai/api/v1/chat/completions',
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://reviewdetective.app',
+        'X-Title': 'Review Detective'
+      },
       body: JSON.stringify({
-        contents: [{
+        model: 'openai/gpt-oss-20b:free',
+        messages: [{
           role: 'user',
-          parts: [{ text: prompt }]
+          content: prompt
         }],
-        tools: [{ googleSearch: {} }],
-        generationConfig: {
-          temperature: 0.2,
-          topP: 0.8,
-          maxOutputTokens: 1024,
-          responseMimeType: "application/json"
-        }
+        temperature: 0.2,
+        max_tokens: 1024
       })
     }
   );
 
   if (!response.ok) {
-    console.log('Gemini analysis failed, using default ranking');
+    console.log('OpenRouter analysis failed, using default ranking');
     return videos.map((video, index) => ({
       title: video.title,
       url: video.url,
@@ -293,7 +296,7 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+  const text = data?.choices?.[0]?.message?.content || '[]';
   
   try {
     // Remove markdown code fences if present
@@ -326,7 +329,7 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
     return rankedVideos.sort((a, b) => b.relevanceScore - a.relevanceScore);
     
   } catch (error) {
-    console.error('Failed to parse Gemini analysis:', error);
+    console.error('Failed to parse OpenRouter analysis:', error);
     return videos.map((video, index) => ({
       title: video.title,
       url: video.url,

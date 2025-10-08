@@ -20,3 +20,9 @@ verify_jwt = true
 
 [functions.ai-detector]
 verify_jwt = false
+
+[functions.openrouter-chat]
+verify_jwt = false
+
+[functions.analyze-reviews-ai]
+verify_jwt = false
