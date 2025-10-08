@@ -130,7 +130,11 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
   
   try {
-    const queries = JSON.parse(text);
+    // Remove markdown code fences if present
+    const cleanText = text.trim()
+      .replace(/^```json?\s*/i, '')
+      .replace(/\s*```$/i, '');
+    const queries = JSON.parse(cleanText);
     return Array.isArray(queries) ? queries : [productTitle + ' review', productTitle + ' unboxing'];
   } catch {
     return [productTitle + ' review', productTitle + ' unboxing'];
@@ -192,8 +196,10 @@ CRITICAL RULES:
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
     
-    // Clean up the text before parsing - remove any truncated content
-    let cleanText = text.trim();
+    // Clean up the text before parsing - remove markdown code blocks and truncated content
+    let cleanText = text.trim()
+      .replace(/^```json?\s*/i, '')  // Remove opening code fence
+      .replace(/\s*```$/i, '');      // Remove closing code fence
     
     // If text seems incomplete, try to fix it
     if (!cleanText.endsWith(']')) {
@@ -290,7 +296,11 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
   
   try {
-    const analyses = JSON.parse(text);
+    // Remove markdown code fences if present
+    const cleanText = text.trim()
+      .replace(/^```json?\s*/i, '')
+      .replace(/\s*```$/i, '');
+    const analyses = JSON.parse(cleanText);
     
     // Combine video data with AI analysis
     const rankedVideos = videos.map(video => {
