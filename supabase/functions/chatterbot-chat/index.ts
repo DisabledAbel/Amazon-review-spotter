@@ -19,19 +19,9 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Authentication required');
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-
-    if (authError || !user) {
-      throw new Error('Invalid authentication');
-    }
+    // Public access: authentication optional for chatbot
+    // Note: If a user session is present, you can read it from the Authorization header,
+    // but we don't require it to respond to general inquiries.
 
     const { message, productContext } = await req.json();
 
