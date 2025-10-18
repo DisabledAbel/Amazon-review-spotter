@@ -9,7 +9,7 @@ const extractProductInfo = (productLink: string): ProductInfo => {
   // Generate placeholder product info (in real implementation, this would fetch from Amazon API)
   const productInfo: ProductInfo = {
     title: asin ? `Amazon Product ${asin}` : "Product Information Unavailable",
-    image: asin ? `https://images-na.ssl-images-amazon.com/images/P/${asin}.01.L.jpg` : "/placeholder.svg",
+    image: asin ? `https://m.media-amazon.com/images/I/${asin}.jpg` : "/placeholder.svg",
     link: productLink,
     asin: asin
   };
