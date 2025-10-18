@@ -183,16 +183,16 @@ export const ChatBot = () => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl w-full h-[80vh] flex flex-col p-0">
-        <DialogHeader className="px-6 py-4 border-b">
+      <DialogContent className="max-w-2xl w-full h-[65vh] flex flex-col p-0">
+        <DialogHeader className="px-4 py-3 border-b">
           <DialogTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-lg">
-                <Bot className="h-5 w-5 text-primary-foreground" />
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-primary rounded-lg">
+                <Bot className="h-4 w-4 text-primary-foreground" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold">Amazon Review Assistant</h3>
-                <p className="text-sm text-muted-foreground">Powered by Meta Llama 3.2 3B</p>
+                <h3 className="text-base font-semibold">Review Assistant</h3>
+                <p className="text-xs text-muted-foreground">Meta Llama 3.2 3B</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
@@ -202,30 +202,30 @@ export const ChatBot = () => {
         </DialogHeader>
 
         <div className="flex-1 flex flex-col">
-          <ScrollArea className="flex-1 p-6">
-            <div className="max-w-3xl mx-auto space-y-6">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className={`flex gap-4 ${message.isBot ? 'justify-start' : 'justify-end'}`}
                 >
                   {message.isBot && (
-                    <Avatar className="h-10 w-10 mt-1 flex-shrink-0">
+                    <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
                       <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Bot className="h-5 w-5" />
+                        <Bot className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
                   )}
                   
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                    className={`max-w-[75%] rounded-xl px-3 py-2 ${
                       message.isBot
                         ? 'bg-muted text-foreground'
                         : 'bg-primary text-primary-foreground'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap leading-relaxed">{message.text}</div>
-                    <div className="text-xs opacity-70 mt-2 flex items-center gap-1">
+                    <div className="whitespace-pre-wrap leading-relaxed text-sm">{message.text}</div>
+                    <div className="text-xs opacity-70 mt-1 flex items-center gap-1">
                       {message.timestamp.toLocaleTimeString([], { 
                         hour: '2-digit', 
                         minute: '2-digit' 
@@ -234,9 +234,9 @@ export const ChatBot = () => {
                   </div>
                   
                   {!message.isBot && (
-                    <Avatar className="h-10 w-10 mt-1 flex-shrink-0">
+                    <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
                       <AvatarFallback className="bg-secondary">
-                        <User className="h-5 w-5" />
+                        <User className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -244,16 +244,16 @@ export const ChatBot = () => {
               ))}
               
               {loading && (
-                <div className="flex gap-4 justify-start">
-                  <Avatar className="h-10 w-10 mt-1 flex-shrink-0">
+                <div className="flex gap-3 justify-start">
+                  <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
                     <AvatarFallback className="bg-primary text-primary-foreground">
-                      <Bot className="h-5 w-5" />
+                      <Bot className="h-4 w-4" />
                     </AvatarFallback>
                   </Avatar>
-                  <div className="bg-muted rounded-2xl px-4 py-3">
+                  <div className="bg-muted rounded-xl px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Assistant is thinking...</span>
+                      <span className="text-sm">Thinking...</span>
                     </div>
                   </div>
                 </div>
@@ -262,30 +262,24 @@ export const ChatBot = () => {
             </div>
           </ScrollArea>
           
-          <div className="border-t bg-background p-6">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex gap-3">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask me about Amazon reviews, fake review detection, or shopping tips..."
-                  disabled={loading}
-                  className="flex-1 h-12 px-4"
-                />
-                <Button 
-                  onClick={sendMessage}
-                  disabled={loading || !input.trim()}
-                  className="h-12 px-6"
-                >
-                  <Send className="h-4 w-4 mr-2" />
-                  Send
-                </Button>
-              </div>
-              
-              <div className="mt-3 text-sm text-muted-foreground text-center">
-                <p>💡 Try: "How do I spot fake reviews?" • "Analyze this product" • "Shopping safety tips"</p>
-              </div>
+          <div className="border-t bg-background p-4">
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about reviews..."
+                disabled={loading}
+                className="flex-1 h-10 px-3 text-sm"
+              />
+              <Button 
+                onClick={sendMessage}
+                disabled={loading || !input.trim()}
+                className="h-10 px-4"
+                size="sm"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
             </div>
           </div>
         </div>
