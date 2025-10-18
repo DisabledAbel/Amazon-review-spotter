@@ -56,7 +56,7 @@ export const LandingPage = () => {
             {/* Main CTA */}
             <div className="space-y-6">
               <p className="text-xl text-foreground/80 max-w-2xl mx-auto leading-relaxed">
-                Don't get fooled by fake reviews. Our AI analyzes Amazon product reviews to help you make informed purchasing decisions.
+                Don't get fooled by fake reviews. Our AI highlights clear risk signals and review patterns so you can make informed decisions. By combining our insights with product details and seller history, you can avoid wasting money on items that haven't earned your trust.
               </p>
               
               <Button 
