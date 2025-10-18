@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const geminiApiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -45,8 +45,8 @@ serve(async (req) => {
     let response: string;
     let youtubeVideos: any[] = []; // Declare in outer scope
 
-    // Check if Google Gemini API is configured
-    if (geminiApiKey) {
+    // Check if OpenRouter API is configured
+    if (openrouterApiKey) {
       try {
         // Prepare system prompt and context
         const systemPrompt = `You are an AI assistant specialized in Amazon product reviews and authenticity. 
@@ -90,46 +90,34 @@ ${youtubeVideos.map((video: any, index: number) =>
           }
         }
 
-        // Use Google Gemini API with Google Search grounding
-        const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
+        // Use OpenRouter API with Llama 3.2 3B Instruct
+        const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
+            'Authorization': `Bearer ${openrouterApiKey}`,
             'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://reviewdetective.app',
+            'X-Title': 'Review Detective'
           },
           body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: `${systemPrompt}${contextMessage}\n\nUser: ${sanitizedMessage}`
-              }]
-            }],
-            tools: [{ googleSearch: {} }],
-            generationConfig: {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 1024,
-            },
-            safetySettings: [
-              {
-                category: "HARM_CATEGORY_HARASSMENT",
-                threshold: "BLOCK_MEDIUM_AND_ABOVE"
-              },
-              {
-                category: "HARM_CATEGORY_HATE_SPEECH",
-                threshold: "BLOCK_MEDIUM_AND_ABOVE"
-              }
-            ]
+            model: 'meta-llama/llama-3.2-3b-instruct:free',
+            messages: [
+              { role: 'system', content: systemPrompt + contextMessage },
+              { role: 'user', content: sanitizedMessage }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000
           }),
         });
 
-        if (!geminiResponse.ok) {
-          const errorData = await geminiResponse.text();
-          console.error('Gemini API error:', errorData);
-          throw new Error('Gemini API error');
+        if (!openrouterResponse.ok) {
+          const errorData = await openrouterResponse.text();
+          console.error('OpenRouter API error:', errorData);
+          throw new Error('OpenRouter API error');
         }
 
-        const geminiData = await geminiResponse.json();
-        let aiResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "I'm sorry, I couldn't process that request.";
+        const openrouterData = await openrouterResponse.json();
+        let aiResponse = openrouterData.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
         
         // Add YouTube videos to response if available
         if (youtubeVideos.length > 0) {
@@ -140,12 +128,12 @@ ${youtubeVideos.map((video: any, index: number) =>
         
         response = aiResponse;
       } catch (error) {
-        console.error('Gemini API error:', error);
+        console.error('OpenRouter API error:', error);
         // Fallback to built-in responses
         response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
       }
     } else {
-      // Use built-in responses if Gemini is not configured
+      // Use built-in responses if OpenRouter is not configured
       response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
     }
 

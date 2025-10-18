@@ -21,7 +21,7 @@ export const ChatBot = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hi! I'm your Amazon Review Assistant powered by Google Gemini AI. I specialize in helping you understand product authenticity and spot fake reviews. Ask me anything about Amazon reviews, shopping tips, or product analysis!",
+      text: "Hi! I'm your Amazon Review Assistant powered by Meta Llama 3.2 3B Instruct. I specialize in helping you understand product authenticity and spot fake reviews. Ask me anything about Amazon reviews, shopping tips, or product analysis!",
       isBot: true,
       timestamp: new Date()
     }
@@ -192,7 +192,7 @@ export const ChatBot = () => {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">Amazon Review Assistant</h3>
-                <p className="text-sm text-muted-foreground">Powered by Google Gemini AI</p>
+                <p className="text-sm text-muted-foreground">Powered by Meta Llama 3.2 3B</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
