@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Shield, Mail, Lock, User } from "lucide-react";
+import { Shield, Mail, Lock, User, Chrome } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +25,26 @@ const { user, continueAsGuest } = useAuth();
       navigate('/');
     }
   }, [user, navigate]);
+
+  const handleGoogleAuth = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Google auth error:', error);
+      toast({
+        title: "Authentication failed",
+        description: error.message || "An error occurred during Google authentication",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,10 +185,20 @@ const { user, continueAsGuest } = useAuth();
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-background px-2 text-muted-foreground">
-                    Or
+                    Or continue with
                   </span>
                 </div>
               </div>
+
+              <Button
+                variant="outline"
+                onClick={handleGoogleAuth}
+                className="w-full"
+                type="button"
+              >
+                <Chrome className="mr-2 h-4 w-4" />
+                Sign in with Google
+              </Button>
 
               <Button
                 variant="outline"
