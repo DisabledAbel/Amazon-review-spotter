@@ -17,7 +17,11 @@ interface Message {
   timestamp: Date;
 }
 
-export const ChatBot = () => {
+interface ChatBotProps {
+  inline?: boolean;
+}
+
+export const ChatBot = ({ inline = false }: ChatBotProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -37,15 +41,15 @@ export const ChatBot = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Listen for product analysis events to automatically provide YouTube videos
+  // Listen for product analysis events to automatically provide context
   useEffect(() => {
     const handleProductAnalyzed = async (event: CustomEvent) => {
       const { productTitle } = event.detail;
-      if (productTitle && isOpen) {
-        // Automatically send a message about YouTube videos for the analyzed product
+      if (productTitle && (inline || isOpen)) {
+        // Automatically send a message about the analyzed product
         const autoMessage: Message = {
           id: (Date.now() + 1000).toString(),
-          text: `I see you just analyzed "${productTitle}". Let me find some YouTube reviews for this product!`,
+          text: `I see you just analyzed "${productTitle}". Feel free to ask me any questions about this product's reviews!`,
           isBot: true,
           timestamp: new Date()
         };
@@ -58,7 +62,7 @@ export const ChatBot = () => {
     return () => {
       window.removeEventListener('productAnalyzed', handleProductAnalyzed as EventListener);
     };
-  }, [isOpen]);
+  }, [inline, isOpen]);
 
   // Rate limiting - max 10 messages per minute
   const RATE_LIMIT_INTERVAL = 60000; // 1 minute
@@ -172,6 +176,109 @@ export const ChatBot = () => {
     }
   };
 
+  // Inline mode - renders as a card component
+  if (inline) {
+    return (
+      <Card className="w-full flex flex-col h-[600px]">
+        <div className="px-4 py-3 border-b bg-muted/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-primary rounded-lg">
+              <Bot className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <div>
+              <h3 className="text-base font-semibold">AI Review Assistant</h3>
+              <p className="text-xs text-muted-foreground">Meta Llama 3.2 3B</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 flex flex-col min-h-0">
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex gap-3 ${message.isBot ? 'justify-start' : 'justify-end'}`}
+                >
+                  {message.isBot && (
+                    <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        <Bot className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  
+                  <div
+                    className={`max-w-[80%] rounded-xl px-3 py-2 ${
+                      message.isBot
+                        ? 'bg-muted text-foreground'
+                        : 'bg-primary text-primary-foreground'
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap leading-relaxed text-sm">{message.text}</div>
+                    <div className="text-xs opacity-70 mt-1">
+                      {message.timestamp.toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </div>
+                  </div>
+                  
+                  {!message.isBot && (
+                    <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
+                      <AvatarFallback className="bg-secondary">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                </div>
+              ))}
+              
+              {loading && (
+                <div className="flex gap-3 justify-start">
+                  <Avatar className="h-8 w-8 mt-1 flex-shrink-0">
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      <Bot className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="bg-muted rounded-xl px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+          
+          <div className="border-t bg-background p-3">
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about reviews..."
+                disabled={loading}
+                className="flex-1 h-10 px-3 text-sm"
+              />
+              <Button 
+                onClick={sendMessage}
+                disabled={loading || !input.trim()}
+                className="h-10 px-4"
+                size="sm"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // Dialog mode - renders as floating button with dialog
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>

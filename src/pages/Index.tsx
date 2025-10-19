@@ -53,7 +53,6 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <ThemeToggle />
       <AppSidebar />
-      <ChatBot />
       <PWAPrompt />
       <InstallationGuide 
         open={showInstallGuide} 

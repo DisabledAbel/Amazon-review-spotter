@@ -17,7 +17,7 @@ const { user, loading, isGuest } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
-  // Listen for product analysis requests from YouTube search
+  // Listen for product analysis requests
   useEffect(() => {
     const handleAnalyzeProduct = (event: CustomEvent) => {
       const { url } = event.detail;
@@ -39,44 +39,10 @@ const { user, loading, isGuest } = useAuth();
       }
     };
 
-    const handleShowYouTubeSearch = (event: CustomEvent) => {
-      console.log("showYouTubeSearch event received:", event.detail);
-      const { productTitle } = event.detail;
-      if (productTitle) {
-        // Scroll to YouTube search widget and trigger search
-        const youtubeWidget = document.querySelector('[data-component="youtube-search"]');
-        console.log("YouTube widget found:", youtubeWidget);
-        if (youtubeWidget) {
-          youtubeWidget.scrollIntoView({ behavior: 'smooth' });
-          
-          // Trigger search with product title
-          const searchInput = youtubeWidget.querySelector('input[placeholder*="Search for product videos"]') as HTMLInputElement;
-          const searchButton = Array.from(youtubeWidget.querySelectorAll('button')).find(btn => 
-            btn.textContent?.includes('Search') || btn.innerHTML.includes('search')
-          ) as HTMLButtonElement;
-          
-          console.log("Search input found:", searchInput);
-          console.log("Search button found:", searchButton);
-          
-          if (searchInput && searchButton) {
-            searchInput.value = `${productTitle} review`;
-            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
-            console.log("Setting search value to:", `${productTitle} review`);
-            setTimeout(() => {
-              console.log("Clicking search button");
-              searchButton.click();
-            }, 100);
-          }
-        }
-      }
-    };
-
     window.addEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
-    window.addEventListener('showYouTubeSearch', handleShowYouTubeSearch as EventListener);
     
     return () => {
       window.removeEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
-      window.removeEventListener('showYouTubeSearch', handleShowYouTubeSearch as EventListener);
     };
   }, []);
 
@@ -97,7 +63,7 @@ if (!user && !isGuest) {
       const result = await analyzeReview(reviewData);
       setAnalysisResult(result);
       
-      // Dispatch event to trigger chatbot YouTube video search
+      // Dispatch event to inform chatbot about the analyzed product
       const productAnalyzedEvent = new CustomEvent('productAnalyzed', {
         detail: { productTitle: result.productInfo.title }
       });
@@ -173,7 +139,6 @@ if (!user && !isGuest) {
     <div className="min-h-screen bg-background">
       <ThemeToggle />
       <AppSidebar />
-      <ChatBot />
       
       {/* Header */}
       <div className="bg-card border-b shadow-sm">
@@ -190,35 +155,47 @@ if (!user && !isGuest) {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {!analysisResult ? (
-          <div className="space-y-8">
-            {/* Introduction */}
-            <div className="bg-card rounded-xl p-6 shadow-sm border max-w-4xl mx-auto">
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                  <Search className="h-5 w-5 text-primary" />
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Content Area */}
+          <div className="lg:col-span-2">
+            {!analysisResult ? (
+              <div className="space-y-8">
+                {/* Introduction */}
+                <div className="bg-card rounded-xl p-6 shadow-sm border">
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                      <Search className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground mb-2">How it works</h2>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Simply paste an Amazon product link below and our AI will analyze all the reviews 
+                        for that product to detect fake, paid, or manipulated reviews. We examine review patterns, 
+                        timing, language, and reviewer behavior to give you an authenticity assessment.
+                      </p>
+                    </div>
+                  </div>
                 </div>
+
+                <ReviewTips />
+
                 <div>
-                  <h2 className="text-lg font-semibold text-foreground mb-2">How it works</h2>
-                  <p className="text-muted-foreground leading-relaxed">
-                    Simply paste an Amazon product link below and our AI will analyze all the reviews 
-                    for that product to detect fake, paid, or manipulated reviews. We examine review patterns, 
-                    timing, language, and reviewer behavior to give you an authenticity assessment.
-                  </p>
+                  <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
                 </div>
               </div>
-            </div>
+            ) : (
+              <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+            )}
+          </div>
 
-            <ReviewTips />
-
-            <div className="max-w-2xl mx-auto">
-              <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+          {/* AI Assistant Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-6">
+              <ChatBot inline />
             </div>
           </div>
-        ) : (
-          <AnalysisDisplay result={analysisResult} onReset={handleReset} />
-        )}
+        </div>
 
         {/* Footer */}
         <div className="mt-12 text-center">
