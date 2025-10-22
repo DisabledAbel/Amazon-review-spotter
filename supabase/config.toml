@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.gemini-video-scan]
 verify_jwt = true
+
+[functions.search-coupons]
+verify_jwt = true

@@ -46,6 +46,7 @@ serve(async (req) => {
         - Shopping tips and advice
         - Product evaluation techniques
         - Review analysis
+        - Finding coupons and deals for products
         
         If asked about anything else, politely redirect the conversation back to these topics.
         Keep responses helpful, concise, and focused on review authenticity.`;
@@ -77,6 +78,25 @@ ${youtubeVideos.map((video: any, index: number) =>
             }
           } catch (error) {
             console.error('Error fetching YouTube videos:', error);
+          }
+
+          // Auto-search for coupons when product is analyzed
+          try {
+            const { data: couponData } = await supabase.functions.invoke('search-coupons', {
+              body: { 
+                productName: productContext.title,
+                productUrl: productContext.url
+              }
+            });
+            
+            if (couponData?.message) {
+              contextMessage += `\n\nCoupon availability: ${couponData.message}`;
+              if (couponData.suggestions?.length > 0) {
+                contextMessage += `\nSuggestions:\n${couponData.suggestions.map((s: string) => `- ${s}`).join('\n')}`;
+              }
+            }
+          } catch (error) {
+            console.error('Error searching for coupons:', error);
           }
         }
 
