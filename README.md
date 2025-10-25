@@ -39,7 +39,7 @@ The tool feeds review content and reviewer metadata into a language model using 
 ## 🛠 installation 
 <a href="https://review-sensei-detector.lovable.app/?code=cb9e57db49bc5481c88c&installation_id=91506509&setup_action=install" target="_blank" rel="noopener"
    style="display:inline-block;padding:8px 14px;border-radius:8px;background:#2563EB;color:#fff;text-decoration:none;font-weight:600">
-  🚀 Open Review Sensei Detector
+  🚀 Open Amazon Review Spotter
 </a>
 
 
