@@ -53,6 +53,10 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
     });
 
     if (!scrapingResult.success) {
+      // Check if it's an Amazon blocking error
+      if (scrapingResult.error?.includes('Amazon blocked') || scrapingResult.error?.includes('captcha')) {
+        throw new Error('AMAZON_BLOCKED');
+      }
       throw new Error(scrapingResult.error || 'Failed to scrape reviews');
     }
 
@@ -130,7 +134,50 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
   } catch (error) {
     console.error('Error during real review analysis:', error);
     
-    // Fallback to simulated analysis if scraping fails
+    // Check if Amazon blocked the request
+    if (error.message === 'AMAZON_BLOCKED') {
+      // Try to get AI-curated videos as an alternative
+      let aiVideos = [];
+      try {
+        const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
+          body: { 
+            productTitle: productInfo.title,
+            productAsin: productInfo.asin 
+          }
+        });
+        
+        if (!videoError && videoData?.success) {
+          aiVideos = videoData.videos || [];
+        }
+      } catch (videoError) {
+        console.log('AI video finder also failed:', videoError);
+      }
+
+      // Return a helpful error with AI videos
+      return {
+        genuinenessScore: 0,
+        scoreExplanation: "⚠️ Amazon has detected and blocked automated review scraping. This is a common protection mechanism.",
+        redFlags: [
+          "🛑 Direct Amazon scraping is currently blocked",
+          "💡 Try using the YouTube Search feature to find video reviews",
+          "📊 AI-powered video analysis is still available below"
+        ],
+        finalVerdict: "Unable to Analyze - Amazon Blocking",
+        verdictExplanation: "Amazon's anti-bot protection is preventing direct review scraping. We recommend using the YouTube Search feature to find authentic video reviews, or try again later. AI-curated videos are still available.",
+        productInfo,
+        realAnalysis: aiVideos.length > 0 ? {
+          totalReviews: 0,
+          verificationRate: 0,
+          authenticityPercentage: 0,
+          ratingDistribution: {},
+          individualReviews: [],
+          productVideos: [],
+          onlineVideos: aiVideos.slice(0, 6)
+        } : undefined
+      };
+    }
+    
+    // Fallback to simulated analysis for other errors
     const fallbackResult = simulateAnalysis(data, productInfo);
     
     // Save fallback to history as well
