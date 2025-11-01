@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 interface VideoResult {
   title: string;
@@ -26,9 +26,9 @@ serve(async (req) => {
   }
 
   try {
-    if (!OPENROUTER_API_KEY) {
+    if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ 
-        error: 'Missing OPENROUTER_API_KEY' 
+        error: 'Missing LOVABLE_API_KEY' 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -48,7 +48,7 @@ serve(async (req) => {
 
     console.log('Finding videos for product:', productTitle);
 
-    // Step 1: Generate intelligent search queries using OpenRouter
+    // Step 1: Generate intelligent search queries using Lovable AI
     const searchQueries = await generateSearchQueries(productTitle, productAsin);
     console.log('Generated search queries:', searchQueries);
 
@@ -59,7 +59,7 @@ serve(async (req) => {
       allVideos.push(...videos);
     }
 
-    // Step 3: Use OpenRouter to analyze and rank videos for relevance
+    // Step 3: Use Lovable AI to analyze and rank videos for relevance
     const rankedVideos = await analyzeVideoRelevance(productTitle, productAsin, allVideos);
 
     return new Response(JSON.stringify({
@@ -102,29 +102,26 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
   Return ONLY a JSON array of 5 strings, no explanation:`;
 
   const response = await fetch(
-    'https://openrouter.ai/api/v1/chat/completions',
+    'https://ai.gateway.lovable.dev/v1/chat/completions',
     {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://reviewdetective.app',
-        'X-Title': 'Review Detective'
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-20b:free',
+        model: 'google/gemini-2.5-flash',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        temperature: 0.3,
-        max_tokens: 512
+        max_completion_tokens: 512
       })
     }
   );
 
   if (!response.ok) {
-    throw new Error('Failed to generate search queries with OpenRouter');
+    throw new Error('Failed to generate search queries with Lovable AI');
   }
 
   const data = await response.json();
@@ -144,88 +141,40 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
 
 async function searchYouTubeVideos(query: string) {
   try {
-    // Use OpenRouter with web search to find YouTube videos
-    const prompt = `Search YouTube for: "${query}"
-
-Find 5-8 real YouTube videos using Google Search.
-
-For EACH video, return this EXACT format (keep descriptions under 100 characters):
-{
-  "id": "VIDEO_ID",
-  "title": "Video Title",
-  "channel": "Channel Name",
-  "description": "Short description max 100 chars",
-  "thumbnail": "https://i.ytimg.com/vi/VIDEO_ID/mqdefault.jpg",
-  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
-}
-
-CRITICAL RULES:
-1. Keep descriptions SHORT (under 100 characters)
-2. Escape all quotes in strings with backslash
-3. Return valid JSON array only
-4. Use exact YouTube URLs you find`;
-
-    console.log(`Searching for: ${query}`);
-
-    const response = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'HTTP-Referer': 'https://reviewdetective.app',
-          'X-Title': 'Review Detective'
-        },
-        body: JSON.stringify({
-          model: 'openai/gpt-oss-20b:free',
-          messages: [{
-            role: 'user',
-            content: prompt
-          }],
-          temperature: 0.2,
-          max_tokens: 2048
-        })
-      }
-    );
+    console.log(`Searching YouTube API for: ${query}`);
+    
+    // Call the youtube-search edge function that uses the real YouTube API
+    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/youtube-search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+      },
+      body: JSON.stringify({
+        query,
+        maxResults: 5
+      })
+    });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenRouter search error:', errorText);
+      console.error('YouTube search failed:', response.status);
       return [];
     }
 
     const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content || '[]';
+    const videos = data.videos || [];
     
-    // Clean up the text before parsing - remove markdown code blocks and truncated content
-    let cleanText = text.trim()
-      .replace(/^```json?\s*/i, '')  // Remove opening code fence
-      .replace(/\s*```$/i, '');      // Remove closing code fence
+    console.log(`Found ${videos.length} videos for query: ${query}`);
     
-    // If text seems incomplete, try to fix it
-    if (!cleanText.endsWith(']')) {
-      console.log('JSON appears incomplete, attempting to fix...');
-      // Find the last complete object
-      const lastCompleteObj = cleanText.lastIndexOf('}');
-      if (lastCompleteObj > 0) {
-        cleanText = cleanText.substring(0, lastCompleteObj + 1) + ']';
-      }
-    }
-    
-    try {
-      const videos = JSON.parse(cleanText);
-      console.log(`Found ${videos.length} videos for query: ${query}`);
-      
-      // Ensure all videos have required fields
-      const validVideos = videos.filter((v: any) => v.id && v.title && v.url);
-      return Array.isArray(validVideos) ? validVideos : [];
-    } catch (parseError) {
-      console.error('Failed to parse video results:', parseError);
-      console.error('Raw text length:', text.length);
-      console.error('First 500 chars:', text.substring(0, 500));
-      return [];
-    }
+    // Transform to expected format
+    return videos.map((v: any) => ({
+      id: v.id,
+      title: v.title,
+      channel: v.channelTitle,
+      description: v.description,
+      thumbnail: v.thumbnail,
+      url: v.url
+    }));
   } catch (error) {
     console.error('YouTube search error:', error);
     return [];
@@ -259,29 +208,26 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
   }`;
 
   const response = await fetch(
-    'https://openrouter.ai/api/v1/chat/completions',
+    'https://ai.gateway.lovable.dev/v1/chat/completions',
     {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://reviewdetective.app',
-        'X-Title': 'Review Detective'
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-20b:free',
+        model: 'google/gemini-2.5-flash',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        temperature: 0.2,
-        max_tokens: 1024
+        max_completion_tokens: 1024
       })
     }
   );
 
   if (!response.ok) {
-    console.log('OpenRouter analysis failed, using default ranking');
+    console.log('Lovable AI analysis failed, using default ranking');
     return videos.map((video, index) => ({
       title: video.title,
       url: video.url,
