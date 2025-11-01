@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -35,8 +35,8 @@ serve(async (req) => {
     let response: string;
     let youtubeVideos: any[] = []; // Declare in outer scope
 
-    // Check if OpenRouter API is configured
-    if (openrouterApiKey) {
+    // Check if Lovable AI is configured
+    if (lovableApiKey) {
       try {
         // Prepare system prompt and context
         const systemPrompt = `You are an AI assistant specialized in Amazon product reviews and authenticity. 
@@ -100,50 +100,54 @@ ${youtubeVideos.map((video: any, index: number) =>
           }
         }
 
-        // Use OpenRouter API with Llama 3.2 3B Instruct
-        const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        // Use Lovable AI Gateway with GPT-5
+        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${openrouterApiKey}`,
+            'Authorization': `Bearer ${lovableApiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://reviewdetective.app',
-            'X-Title': 'Review Detective'
           },
           body: JSON.stringify({
-            model: 'meta-llama/llama-3.2-3b-instruct:free',
+            model: 'openai/gpt-5',
             messages: [
               { role: 'system', content: systemPrompt + contextMessage },
               { role: 'user', content: sanitizedMessage }
             ],
-            temperature: 0.7,
-            max_tokens: 1000
+            max_completion_tokens: 1000
           }),
         });
 
-        if (!openrouterResponse.ok) {
-          const errorData = await openrouterResponse.text();
-          console.error('OpenRouter API error:', errorData);
-          throw new Error('OpenRouter API error');
+        if (!aiResponse.ok) {
+          const errorData = await aiResponse.text();
+          console.error('Lovable AI Gateway error:', aiResponse.status, errorData);
+          
+          if (aiResponse.status === 429) {
+            throw new Error('Rate limit exceeded. Please try again later.');
+          }
+          if (aiResponse.status === 402) {
+            throw new Error('AI credits depleted. Please add credits to your workspace.');
+          }
+          throw new Error('AI Gateway error');
         }
 
-        const openrouterData = await openrouterResponse.json();
-        let aiResponse = openrouterData.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
+        const aiData = await aiResponse.json();
+        let assistantResponse = aiData.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
         
         // Add YouTube videos to response if available
         if (youtubeVideos.length > 0) {
-          aiResponse += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
+          assistantResponse += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
             `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
           ).join('\n')}`;
         }
         
-        response = aiResponse;
+        response = assistantResponse;
       } catch (error) {
-        console.error('OpenRouter API error:', error);
+        console.error('Lovable AI error:', error);
         // Fallback to built-in responses
         response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
       }
     } else {
-      // Use built-in responses if OpenRouter is not configured
+      // Use built-in responses if Lovable AI is not configured
       response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
     }
 
