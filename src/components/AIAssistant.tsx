@@ -39,19 +39,19 @@ export const AIAssistant = () => {
       // Get product context from secure storage
       const productContext = secureStorage.getProductAnalysis();
 
-      const { data, error } = await supabase.functions.invoke('openrouter-chat', {
+      const { data, error } = await supabase.functions.invoke('chatterbot-chat', {
         body: {
-          messages: [...messages, userMessage],
+          message: input,
           productContext
         }
       });
 
       if (error) throw error;
 
-      if (data?.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      if (data?.response) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
       } else {
-        throw new Error('No reply from AI');
+        throw new Error('No response from AI');
       }
     } catch (error) {
       console.error('Chat error:', error);

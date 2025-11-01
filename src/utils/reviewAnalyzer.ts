@@ -77,7 +77,7 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
       redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
     }
 
-    // Call video finder (now using OpenRouter) to get AI-curated videos
+    // Call video finder (now using Gemini AI) to get AI-curated videos
     let aiVideos = [];
     try {
       const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {

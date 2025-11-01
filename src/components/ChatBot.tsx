@@ -25,7 +25,7 @@ export const ChatBot = ({ inline = false }: ChatBotProps) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: "Hi! I'm your Amazon Review Assistant powered by Meta Llama 3.2 3B Instruct. I specialize in helping you understand product authenticity and spot fake reviews. Ask me anything about Amazon reviews, shopping tips, or product analysis!",
+      text: "Hi! I'm your Amazon Review Assistant powered by GPT-5. I specialize in helping you understand product authenticity and spot fake reviews. Ask me anything about Amazon reviews, shopping tips, or product analysis!",
       isBot: true,
       timestamp: new Date()
     }
@@ -187,7 +187,7 @@ export const ChatBot = ({ inline = false }: ChatBotProps) => {
             </div>
             <div>
               <h3 className="text-base font-semibold">AI Review Assistant</h3>
-              <p className="text-xs text-muted-foreground">Meta Llama 3.2 3B</p>
+              <p className="text-xs text-muted-foreground">Powered by GPT-5</p>
             </div>
           </div>
         </div>
@@ -299,7 +299,7 @@ export const ChatBot = ({ inline = false }: ChatBotProps) => {
               </div>
               <div>
                 <h3 className="text-base font-semibold">Review Assistant</h3>
-                <p className="text-xs text-muted-foreground">Meta Llama 3.2 3B</p>
+                <p className="text-xs text-muted-foreground">Powered by GPT-5</p>
               </div>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>

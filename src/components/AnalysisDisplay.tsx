@@ -295,7 +295,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                   <Sparkles className="h-5 w-5 text-blue-600" />
                   🤖 AI Review Insights
                   <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-300">
-                    Powered by OpenRouter
+                    Powered by GPT-5
                   </Badge>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
@@ -330,7 +330,7 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
                   <ExternalLink className="h-5 w-5 text-purple-600" />
                   🤖 AI-Discovered YouTube Reviews
                   <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-300">
-                    Powered by OpenRouter
+                    Powered by Gemini AI
                   </Badge>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
