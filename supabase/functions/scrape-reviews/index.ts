@@ -106,8 +106,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error analyzing reviews:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    const isBlocked = /Amazon blocked|captcha|Robot Check/i.test(msg);
+
+    // For Amazon bot protection, return 200 so the client can handle a graceful fallback
+    if (isBlocked) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Amazon blocked the request - got captcha or robot check'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Other errors remain 500
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: msg,
       success: false 
     }), {
       status: 500,
