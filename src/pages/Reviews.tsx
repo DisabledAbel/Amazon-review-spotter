@@ -6,15 +6,18 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
 import { ReviewTips } from "@/components/ReviewTips";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProductVideos } from "@/components/ProductVideos";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
-import { Shield, Search, AlertTriangle } from "lucide-react";
+import { Shield, Search, AlertTriangle, Video } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Reviews = () => {
 const { user, loading, isGuest } = useAuth();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState("analysis");
   const { toast } = useToast();
 
   // Listen for product analysis requests
@@ -62,6 +65,9 @@ if (!user && !isGuest) {
     try {
       const result = await analyzeReview(reviewData);
       setAnalysisResult(result);
+      
+      // Switch to analysis tab to show results
+      setActiveTab("analysis");
       
       // Dispatch event to inform chatbot about the analyzed product
       const productAnalyzedEvent = new CustomEvent('productAnalyzed', {
@@ -185,7 +191,29 @@ if (!user && !isGuest) {
                 </div>
               </div>
             ) : (
-              <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <TabsTrigger value="analysis" className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Analysis
+                  </TabsTrigger>
+                  <TabsTrigger value="videos" className="flex items-center gap-2">
+                    <Video className="h-4 w-4" />
+                    Videos
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="analysis">
+                  <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+                </TabsContent>
+                
+                <TabsContent value="videos">
+                  <ProductVideos 
+                    productTitle={analysisResult.productInfo.title}
+                    productAsin={analysisResult.productInfo.asin}
+                  />
+                </TabsContent>
+              </Tabs>
             )}
           </div>
 
