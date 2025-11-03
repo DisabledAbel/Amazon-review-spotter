@@ -100,7 +100,7 @@ ${youtubeVideos.map((video: any, index: number) =>
           }
         }
 
-        // Use Lovable AI Gateway with GPT-5
+        // Use Lovable AI Gateway with GPT-5 and tool calling
         const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -108,12 +108,36 @@ ${youtubeVideos.map((video: any, index: number) =>
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'openai/gpt-5',
+            model: 'openai/gpt-5-mini',
             messages: [
               { role: 'system', content: systemPrompt + contextMessage },
               { role: 'user', content: sanitizedMessage }
             ],
-            max_completion_tokens: 1000
+            max_completion_tokens: 1000,
+            tools: [
+              {
+                type: 'function',
+                function: {
+                  name: 'search_youtube_videos',
+                  description: 'Search for YouTube videos about a specific product, review, unboxing, or topic. Use this when users ask about videos, want to see reviews, or need visual content about a product.',
+                  parameters: {
+                    type: 'object',
+                    properties: {
+                      query: {
+                        type: 'string',
+                        description: 'The search query for YouTube videos (e.g., "iPhone 15 Pro review", "standing desk unboxing")'
+                      },
+                      maxResults: {
+                        type: 'number',
+                        description: 'Maximum number of videos to return (default: 5)',
+                        default: 5
+                      }
+                    },
+                    required: ['query']
+                  }
+                }
+              }
+            ]
           }),
         });
 
@@ -132,8 +156,37 @@ ${youtubeVideos.map((video: any, index: number) =>
 
         const aiData = await aiResponse.json();
         let assistantResponse = aiData.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
+        const toolCalls = aiData.choices?.[0]?.message?.tool_calls;
+
+        // Handle tool calls if GPT5 wants to search YouTube
+        if (toolCalls && toolCalls.length > 0) {
+          for (const toolCall of toolCalls) {
+            if (toolCall.function.name === 'search_youtube_videos') {
+              const args = JSON.parse(toolCall.function.arguments);
+              console.log('GPT5 requesting YouTube search:', args);
+              
+              try {
+                const { data: videoData } = await supabase.functions.invoke('youtube-search', {
+                  body: { 
+                    query: args.query,
+                    maxResults: args.maxResults || 5
+                  }
+                });
+
+                if (videoData?.videos && videoData.videos.length > 0) {
+                  const videos = videoData.videos.slice(0, 3);
+                  assistantResponse += `\n\n📺 Here are relevant YouTube videos:\n\n${videos.map((video: any) => 
+                    `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
+                  ).join('\n')}`;
+                }
+              } catch (error) {
+                console.error('Error fetching YouTube videos via tool call:', error);
+              }
+            }
+          }
+        }
         
-        // Add YouTube videos to response if available
+        // Add YouTube videos to response if available from product context
         if (youtubeVideos.length > 0) {
           assistantResponse += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
             `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
