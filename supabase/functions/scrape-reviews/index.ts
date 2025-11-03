@@ -96,9 +96,11 @@ serve(async (req) => {
       analysis: realData.analysis,
       reviews: realData.reviews,
       productVideos: realData.productVideos || [],
+      productTitle: realData.productTitle || '',
       debug: {
         videosFound: realData.productVideos?.length || 0,
-        videoTitles: realData.productVideos?.map(v => v.title) || []
+        videoTitles: realData.productVideos?.map(v => v.title) || [],
+        productTitle: realData.productTitle || 'Not extracted'
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -167,6 +169,10 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     throw new Error('Amazon blocked the request - got captcha or robot check');
   }
 
+  // Extract product title from the page
+  const productTitle = extractProductTitle(html);
+  console.log('Extracted product title:', productTitle);
+
   // Parse reviews from HTML
   const reviews = parseAmazonHTML(html, asin);
   
@@ -184,7 +190,8 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     totalReviews: reviews.length,
     analysis: analyzeRealReviews(reviews),
     reviews: reviews.slice(0, 10),
-    productVideos
+    productVideos,
+    productTitle
   };
 }
 
@@ -328,6 +335,29 @@ function cleanText(text: string): string {
     .replace(/&[^;]+;/g, ' ') // Remove HTML entities
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
+}
+
+function extractProductTitle(html: string): string {
+  // Try multiple patterns to extract product title
+  const patterns = [
+    /<h1[^>]*class="[^"]*product-title[^"]*"[^>]*>([^<]+)<\/h1>/i,
+    /<span[^>]*id="productTitle"[^>]*>([^<]+)<\/span>/i,
+    /<h1[^>]*id="title"[^>]*>([^<]+)<\/h1>/i,
+    /<div[^>]*data-feature-name="title"[^>]*>[\s\S]*?<h1[^>]*>([^<]+)<\/h1>/i,
+    /product-title-word-break"[^>]*>([^<]+)</i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match && match[1]) {
+      const title = cleanText(match[1]);
+      if (title.length > 5) {
+        return title;
+      }
+    }
+  }
+  
+  return '';
 }
 
 function detectRealSuspiciousPatterns(review: any): string[] {

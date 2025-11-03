@@ -1,14 +1,14 @@
 import { ReviewData, AnalysisResult, ProductInfo } from "@/types/review";
 import { supabase } from "@/integrations/supabase/client";
 
-const extractProductInfo = (productLink: string): ProductInfo => {
+const extractProductInfo = (productLink: string, scrapedTitle?: string): ProductInfo => {
   // Extract ASIN from Amazon URL
   const asinMatch = productLink.match(/\/dp\/([A-Z0-9]{10})/);
   const asin = asinMatch ? asinMatch[1] : '';
   
-  // Generate placeholder product info (in real implementation, this would fetch from Amazon API)
+  // Use scraped title if available, otherwise use ASIN as fallback
   const productInfo: ProductInfo = {
-    title: asin ? `Amazon Product ${asin}` : "Product Information Unavailable",
+    title: scrapedTitle || (asin ? `Amazon Product ${asin}` : "Product Information Unavailable"),
     image: asin ? `https://m.media-amazon.com/images/I/${asin}.jpg` : "/placeholder.svg",
     link: productLink,
     asin: asin
@@ -18,7 +18,7 @@ const extractProductInfo = (productLink: string): ProductInfo => {
 };
 
 export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> => {
-  const productInfo = extractProductInfo(data.productLink);
+  let productInfo = extractProductInfo(data.productLink);
   
   // Check if it's a valid Amazon link
   const isAmazonLink = data.productLink.includes('amazon.com');
@@ -48,6 +48,7 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
 
     console.log('Scraping result received:', {
       success: scrapingResult.success,
+      productTitle: scrapingResult.productTitle,
       videosCount: scrapingResult.productVideos?.length || 0,
       videoTitles: scrapingResult.productVideos?.map(v => v.title) || []
     });
@@ -61,6 +62,11 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
         throw new Error('AMAZON_BLOCKED');
       }
       throw new Error(scrapingResult.error || 'Failed to scrape reviews');
+    }
+
+    // Update product info with scraped title if available
+    if (scrapingResult.productTitle) {
+      productInfo = extractProductInfo(data.productLink, scrapingResult.productTitle);
     }
 
     const analysis = scrapingResult.analysis;
