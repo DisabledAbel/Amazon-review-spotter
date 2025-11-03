@@ -48,6 +48,8 @@ serve(async (req) => {
         - Review analysis
         - Finding coupons and deals for products
         
+        IMPORTANT: Whenever discussing a specific product or when users ask about reviews, ALWAYS use the search_youtube_videos tool to find relevant YouTube videos automatically. Don't wait for users to ask - proactively search for video reviews to help them make informed decisions.
+        
         If asked about anything else, politely redirect the conversation back to these topics.
         Keep responses helpful, concise, and focused on review authenticity.`;
 
