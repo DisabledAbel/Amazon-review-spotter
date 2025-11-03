@@ -54,7 +54,10 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
 
     if (!scrapingResult.success) {
       // Check if it's an Amazon blocking error
-      if (scrapingResult.error?.includes('Amazon blocked') || scrapingResult.error?.includes('captcha')) {
+      if (scrapingResult.error?.includes('Amazon blocked') || 
+          scrapingResult.error?.includes('captcha') || 
+          scrapingResult.error?.includes('unable to parse') ||
+          scrapingResult.isBlocked) {
         throw new Error('AMAZON_BLOCKED');
       }
       throw new Error(scrapingResult.error || 'Failed to scrape reviews');

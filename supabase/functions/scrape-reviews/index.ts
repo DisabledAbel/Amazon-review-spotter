@@ -107,25 +107,27 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error analyzing reviews:', error);
     const msg = error instanceof Error ? error.message : String(error);
-    const isBlocked = /Amazon blocked|captcha|Robot Check/i.test(msg);
+    const isBlocked = /Amazon blocked|captcha|Robot Check|unable to parse|parsing failed/i.test(msg);
 
-    // For Amazon bot protection, return 200 so the client can handle a graceful fallback
+    // For Amazon bot protection or parsing failures, return 200 so the client can handle graceful fallback
     if (isBlocked) {
       return new Response(JSON.stringify({
         success: false,
-        error: 'Amazon blocked the request - got captcha or robot check'
+        error: 'Amazon blocked the request - unable to access or parse reviews',
+        isBlocked: true
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Other errors remain 500
+    // Other errors also return friendly message instead of 500
     return new Response(JSON.stringify({ 
-      error: msg,
-      success: false 
+      error: 'Unable to analyze reviews at this time. Please try again later.',
+      success: false,
+      originalError: msg
     }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
@@ -168,12 +170,15 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
   // Parse reviews from HTML
   const reviews = parseAmazonHTML(html, asin);
   
+  console.log('Parsed reviews count:', reviews.length);
+  
   if (reviews.length === 0) {
-    throw new Error('No reviews found in HTML - parsing failed');
+    console.log('No reviews parsed - likely Amazon blocking or HTML structure changed');
+    throw new Error('Amazon blocked the request - unable to parse reviews');
   }
 
-    // Also scrape review videos
-    const productVideos = await scrapeReviewVideos(reviewsUrl);
+  // Also scrape review videos
+  const productVideos = await scrapeReviewVideos(reviewsUrl);
   
   return {
     totalReviews: reviews.length,
