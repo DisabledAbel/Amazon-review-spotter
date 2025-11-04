@@ -62,11 +62,17 @@ serve(async (req) => {
     // Step 3: Use Lovable AI to analyze and rank videos for relevance
     const rankedVideos = await analyzeVideoRelevance(productTitle, productAsin, allVideos);
 
+    // Filter to only include videos with relevance score >= 60 (likely about this product)
+    const relevantVideos = rankedVideos.filter(v => v.relevanceScore >= 60);
+
+    console.log(`Filtered to ${relevantVideos.length} relevant videos (score >= 60) out of ${rankedVideos.length} total`);
+
     return new Response(JSON.stringify({
       success: true,
-      videos: rankedVideos.slice(0, 8), // Return top 8 most relevant videos
+      videos: relevantVideos.slice(0, 8), // Return top 8 most relevant videos
       searchQueries: searchQueries,
-      totalFound: allVideos.length
+      totalFound: allVideos.length,
+      filteredCount: relevantVideos.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -83,21 +89,24 @@ serve(async (req) => {
 });
 
 async function generateSearchQueries(productTitle: string, productAsin?: string): Promise<string[]> {
-  const prompt = `Generate 5 optimized YouTube search queries to find the most relevant product review and demonstration videos for this product: "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}
+  const prompt = `Generate 5 HIGHLY SPECIFIC YouTube search queries to find videos ONLY about this exact product: "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}
+
+  CRITICAL: The queries MUST be specific to THIS EXACT product, not generic product categories.
 
   The queries should target:
-  1. Detailed reviews and unboxings
-  2. Comparison videos 
-  3. Tutorial/how-to videos
-  4. Real user experiences
-  5. Expert analysis
+  1. Detailed reviews and unboxings of THIS SPECIFIC product
+  2. Comparison videos featuring THIS product
+  3. Tutorial/how-to videos for THIS product
+  4. Real user experiences with THIS product
+  5. Expert analysis of THIS product
 
   Guidelines:
-  - Use the exact product name when possible
-  - Include relevant keywords like "review", "unboxing", "vs", "tutorial", "test"
-  - Consider brand name, model numbers, and key features
-  - Make queries specific enough to avoid generic results
-  - Include variations in terminology that users might search for
+  - ALWAYS include the EXACT product name/model in each query
+  - Include ASIN (${productAsin}) in at least 2 queries if available
+  - Add specific brand names, model numbers, and unique identifiers
+  - Include keywords: "review", "unboxing", "vs", "tutorial", "test"
+  - Make queries as specific as possible to avoid generic/category videos
+  - Avoid generic terms like "best headphones" - focus on THIS product
 
   Return ONLY a JSON array of 5 strings, no explanation:`;
 
@@ -184,18 +193,23 @@ async function searchYouTubeVideos(query: string) {
 async function analyzeVideoRelevance(productTitle: string, productAsin: string | undefined, videos: any[]): Promise<VideoResult[]> {
   if (videos.length === 0) return [];
 
-  const prompt = `Analyze these YouTube videos to determine how relevant they are for the product "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}.
+  const prompt = `Analyze these YouTube videos to determine if they are about THIS SPECIFIC product: "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}.
+
+  CRITICAL SCORING RULES:
+  - Score 80-100: Video is DEFINITELY about THIS EXACT product (product name/model in title, clear review/unboxing)
+  - Score 60-79: Video LIKELY about this product (similar name, matching features)
+  - Score 40-59: Video MIGHT mention this product (category match, but not focused on it)
+  - Score 0-39: Video NOT about this specific product (generic category, different product, listicle)
 
   For each video, provide:
-  1. relevanceScore (0-100): How likely this video shows/reviews the exact product
-  2. aiReasoning: Brief explanation of the relevance score
+  1. relevanceScore (0-100): How confident you are this video is about THIS EXACT product
+  2. aiReasoning: Brief explanation with specific evidence
 
-  Consider:
-  - Exact product name matches in title
-  - Review/unboxing keywords
-  - Channel credibility for product reviews
-  - Description content relevance
-  - Avoid generic listicles or unrelated content
+  BE STRICT - Only high scores if:
+  - Title contains exact product name/model number
+  - ASIN appears in title or description
+  - Clear review/unboxing indicators for THIS product
+  - NOT generic "best of" or category videos
 
   Videos to analyze:
   ${JSON.stringify(videos.slice(0, 15))} // Limit to prevent token overflow
