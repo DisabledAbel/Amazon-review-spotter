@@ -155,6 +155,7 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     body: JSON.stringify({
       url: reviewsUrl,
       formats: ['html'],
+      render: true,
       onlyMainContent: false,
       includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section'],
       waitFor: 3000
@@ -182,12 +183,44 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
   console.log('Extracted product title:', productTitle);
 
   // Parse reviews from HTML
-  const reviews = parseAmazonHTML(html, asin);
+  let reviews = parseAmazonHTML(html, asin);
   
   console.log('Parsed reviews count:', reviews.length);
   
   if (reviews.length === 0) {
-    console.log('No reviews parsed - likely Amazon blocking or HTML structure changed');
+    console.log('No reviews parsed on first attempt - retrying with longer render...');
+    const retryUrl = reviewsUrl + (reviewsUrl.includes('?') ? '&' : '?') + 'pageNumber=1&sortBy=recent';
+    const retryResp = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: retryUrl,
+        formats: ['html'],
+        render: true,
+        onlyMainContent: false,
+        includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section'],
+        waitFor: 6000
+      })
+    });
+
+    if (retryResp.ok) {
+      const retryData = await retryResp.json();
+      const retryHtml = retryData.data?.html || retryData.html || '';
+      console.log('Retry HTML length:', retryHtml.length);
+      if (retryHtml) {
+        reviews = parseAmazonHTML(retryHtml, asin);
+        console.log('Parsed reviews after retry:', reviews.length);
+      }
+    } else {
+      console.warn('Firecrawl retry failed:', retryResp.status);
+    }
+  }
+
+  if (reviews.length === 0) {
+    console.log('No reviews parsed after retry - likely Amazon blocking or HTML structure changed');
     throw new Error('Amazon blocked the request - unable to parse reviews');
   }
 
