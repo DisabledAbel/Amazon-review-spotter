@@ -1,6 +1,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -136,38 +138,44 @@ serve(async (req) => {
 });
 
 async function scrapeRealReviews(reviewsUrl: string, asin: string) {
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1',
-    'Connection': 'keep-alive'
-  };
-
-  console.log('Fetching:', reviewsUrl);
-  const response = await fetch(reviewsUrl, { headers });
+  console.log('Scraping Amazon reviews via Firecrawl:', reviewsUrl);
   
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  if (!firecrawlApiKey) {
+    console.error('FIRECRAWL_API_KEY not configured');
+    throw new Error('Firecrawl API key not configured');
   }
 
-  const html = await response.text();
-  console.log('HTML length:', html.length);
-  
-  // Check if we got blocked
-  if (html.includes('Robot Check') || html.includes('captcha') || html.length < 1000) {
-    throw new Error('Amazon blocked the request - got captcha or robot check');
+  // Use Firecrawl to scrape the page
+  const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${firecrawlApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url: reviewsUrl,
+      formats: ['html'],
+      onlyMainContent: false,
+      includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section'],
+      waitFor: 3000
+    })
+  });
+
+  if (!firecrawlResponse.ok) {
+    const errorText = await firecrawlResponse.text();
+    console.error('Firecrawl API error:', firecrawlResponse.status, errorText);
+    throw new Error(`Firecrawl API error: ${firecrawlResponse.status}`);
   }
+
+  const firecrawlData = await firecrawlResponse.json();
+  const html = firecrawlData.data?.html || firecrawlData.html || '';
+  
+  if (!html) {
+    console.error('No HTML content received from Firecrawl');
+    throw new Error('No content received from Firecrawl');
+  }
+
+  console.log('Fetched HTML via Firecrawl, length:', html.length);
 
   // Extract product title from the page
   const productTitle = extractProductTitle(html);
@@ -398,21 +406,42 @@ async function scrapeReviewVideos(url: string) {
     // Navigate to the reviews page specifically
     const reviewsUrl = url.includes('/reviews/') ? url : url.replace('/dp/', '/product-reviews/');
     
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-    };
+    console.log('Scraping review videos via Firecrawl from:', reviewsUrl);
 
-    console.log('Scraping review videos from:', reviewsUrl);
-    const response = await fetch(reviewsUrl, { headers });
-    
-    if (!response.ok) {
-      console.log('Failed to fetch reviews page for videos');
+    if (!firecrawlApiKey) {
+      console.log('Firecrawl API key not available for video scraping');
       return [];
     }
 
-    const html = await response.text();
+    // Use Firecrawl to scrape the page
+    const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: reviewsUrl,
+        formats: ['html'],
+        onlyMainContent: false,
+        includeTags: ['div', 'span', 'video', 'source', 'img'],
+        waitFor: 2000
+      })
+    });
+
+    if (!firecrawlResponse.ok) {
+      console.log('Failed to fetch reviews page for videos via Firecrawl');
+      return [];
+    }
+
+    const firecrawlData = await firecrawlResponse.json();
+    const html = firecrawlData.data?.html || firecrawlData.html || '';
+
+    if (!html) {
+      console.log('No HTML received from Firecrawl for videos');
+      return [];
+    }
+
     console.log('HTML length for video search:', html.length);
     
     const videos = [];
