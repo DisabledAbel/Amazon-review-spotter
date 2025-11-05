@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Image, Video, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Image, Video, ChevronLeft, ChevronRight, ExternalLink, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { ProductVideo } from "@/types/review";
 
 interface ProductMediaGalleryProps {
@@ -13,6 +13,13 @@ interface ProductMediaGalleryProps {
 
 export const ProductMediaGallery = ({ images, videos, productTitle }: ProductMediaGalleryProps) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const imageRef = useRef<HTMLDivElement>(null);
 
   if (!images?.length && !videos?.length) {
     return null;
@@ -20,11 +27,93 @@ export const ProductMediaGallery = ({ images, videos, productTitle }: ProductMed
 
   const nextImage = () => {
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
+    resetZoom();
   };
 
   const prevImage = () => {
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    resetZoom();
   };
+
+  const resetZoom = () => {
+    setZoom(1);
+    setImagePosition({ x: 0, y: 0 });
+  };
+
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(prev + 0.5, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prev) => Math.max(prev - 0.5, 1));
+    if (zoom <= 1.5) {
+      setImagePosition({ x: 0, y: 0 });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!imageRef.current) return;
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setMousePosition({ x, y });
+
+    if (isDragging && zoom > 1) {
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      setImagePosition({
+        x: imagePosition.x + deltaX,
+        y: imagePosition.y + deltaY,
+      });
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoom > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (!isDialogOpen) return;
+      
+      switch (e.key) {
+        case 'ArrowLeft':
+          prevImage();
+          break;
+        case 'ArrowRight':
+          nextImage();
+          break;
+        case '+':
+        case '=':
+          handleZoomIn();
+          break;
+        case '-':
+          handleZoomOut();
+          break;
+        case 'Escape':
+          setIsDialogOpen(false);
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isDialogOpen, selectedImageIndex, zoom]);
+
+  useEffect(() => {
+    if (!isDialogOpen) {
+      resetZoom();
+    }
+  }, [isDialogOpen]);
 
   return (
     <Card>
@@ -48,25 +137,30 @@ export const ProductMediaGallery = ({ images, videos, productTitle }: ProductMed
               </h3>
             </div>
 
-            {/* Main Image Display */}
-            <Dialog>
+            {/* Main Image Display with Enhanced Carousel */}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <div className="relative aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer group">
+                <div className="relative aspect-square bg-muted rounded-lg overflow-hidden cursor-zoom-in group">
                   <img
                     src={images[selectedImageIndex]}
                     alt={`${productTitle} - Image ${selectedImageIndex + 1}`}
-                    className="w-full h-full object-contain transition-transform group-hover:scale-105"
+                    className="w-full h-full object-contain transition-all duration-300 group-hover:scale-105"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = "/placeholder.svg";
                     }}
                   />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                  <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded-md text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Maximize2 className="h-3 w-3" />
+                    Click to zoom
+                  </div>
                   {images.length > 1 && (
                     <>
                       <Button
                         variant="secondary"
                         size="icon"
-                        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-80 hover:opacity-100"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
                           prevImage();
@@ -77,7 +171,7 @@ export const ProductMediaGallery = ({ images, videos, productTitle }: ProductMed
                       <Button
                         variant="secondary"
                         size="icon"
-                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-80 hover:opacity-100"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                         onClick={(e) => {
                           e.stopPropagation();
                           nextImage();
@@ -85,46 +179,141 @@ export const ProductMediaGallery = ({ images, videos, productTitle }: ProductMed
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Button>
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-medium">
                         {selectedImageIndex + 1} / {images.length}
                       </div>
                     </>
                   )}
                 </div>
               </DialogTrigger>
-              <DialogContent className="max-w-4xl">
-                <img
-                  src={images[selectedImageIndex]}
-                  alt={`${productTitle} - Full size`}
-                  className="w-full h-auto"
-                />
-              </DialogContent>
-            </Dialog>
+              <DialogContent className="max-w-[95vw] max-h-[95vh] p-0">
+                <div className="relative w-full h-full bg-black">
+                  {/* Zoom Controls */}
+                  <div className="absolute top-4 right-4 z-50 flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={handleZoomOut}
+                      disabled={zoom <= 1}
+                      className="bg-black/80 hover:bg-black/90 text-white"
+                    >
+                      <ZoomOut className="h-4 w-4" />
+                    </Button>
+                    <div className="bg-black/80 text-white px-3 py-2 rounded-md text-sm font-medium">
+                      {Math.round(zoom * 100)}%
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="icon"
+                      onClick={handleZoomIn}
+                      disabled={zoom >= 3}
+                      className="bg-black/80 hover:bg-black/90 text-white"
+                    >
+                      <ZoomIn className="h-4 w-4" />
+                    </Button>
+                  </div>
 
-            {/* Thumbnail Grid */}
-            {images.length > 1 && (
-              <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                {images.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                      selectedImageIndex === index
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "border-transparent hover:border-primary/50"
-                    }`}
+                  {/* Navigation Arrows */}
+                  {images.length > 1 && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-50 h-12 w-12 bg-black/50 hover:bg-black/70 text-white"
+                        onClick={prevImage}
+                      >
+                        <ChevronLeft className="h-6 w-6" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-4 top-1/2 -translate-y-1/2 z-50 h-12 w-12 bg-black/50 hover:bg-black/70 text-white"
+                        onClick={nextImage}
+                      >
+                        <ChevronRight className="h-6 w-6" />
+                      </Button>
+                    </>
+                  )}
+
+                  {/* Image Counter */}
+                  {images.length > 1 && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 bg-black/80 text-white px-4 py-2 rounded-full text-sm font-medium">
+                      {selectedImageIndex + 1} / {images.length}
+                    </div>
+                  )}
+
+                  {/* Zoomable Image Container */}
+                  <div
+                    ref={imageRef}
+                    className="w-full h-[90vh] flex items-center justify-center overflow-hidden cursor-grab active:cursor-grabbing"
+                    onMouseMove={handleMouseMove}
+                    onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseUp}
                   >
                     <img
-                      src={image}
-                      alt={`Thumbnail ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      src={images[selectedImageIndex]}
+                      alt={`${productTitle} - Full size`}
+                      className="max-w-full max-h-full object-contain transition-transform duration-200 select-none"
+                      style={{
+                        transform: `scale(${zoom}) translate(${imagePosition.x / zoom}px, ${imagePosition.y / zoom}px)`,
+                        transformOrigin: `${mousePosition.x}% ${mousePosition.y}%`,
+                      }}
+                      draggable={false}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = "/placeholder.svg";
                       }}
                     />
-                  </button>
-                ))}
+                  </div>
+
+                  {/* Keyboard Shortcuts Helper */}
+                  <div className="absolute bottom-4 right-4 bg-black/80 text-white px-3 py-2 rounded-md text-xs">
+                    <div className="flex gap-4">
+                      <span>← → Navigate</span>
+                      <span>+ - Zoom</span>
+                      <span>ESC Close</span>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Enhanced Thumbnail Grid with Smooth Transitions */}
+            {images.length > 1 && (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  Click any image to view • Use arrow keys to navigate
+                </p>
+                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                  {images.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedImageIndex(index);
+                        resetZoom();
+                      }}
+                      className={`group aspect-square rounded-lg overflow-hidden border-2 transition-all duration-300 ${
+                        selectedImageIndex === index
+                          ? "border-primary ring-2 ring-primary/30 scale-105 shadow-lg"
+                          : "border-border hover:border-primary/50 hover:scale-105 hover:shadow-md"
+                      }`}
+                    >
+                      <img
+                        src={image}
+                        alt={`Thumbnail ${index + 1}`}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
+                      />
+                      {selectedImageIndex === index && (
+                        <div className="absolute inset-0 bg-primary/10 animate-pulse" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
