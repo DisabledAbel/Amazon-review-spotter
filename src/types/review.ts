@@ -6,6 +6,7 @@ export interface ReviewData {
 export interface ProductInfo {
   title: string;
   image: string;
+  images: string[];
   link: string;
   asin: string;
 }

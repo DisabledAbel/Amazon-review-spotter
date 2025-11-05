@@ -1,7 +1,7 @@
 import { ReviewData, AnalysisResult, ProductInfo } from "@/types/review";
 import { supabase } from "@/integrations/supabase/client";
 
-const extractProductInfo = (productLink: string, scrapedTitle?: string): ProductInfo => {
+const extractProductInfo = (productLink: string, scrapedTitle?: string, images?: string[]): ProductInfo => {
   // Extract ASIN from Amazon URL
   const asinMatch = productLink.match(/\/dp\/([A-Z0-9]{10})/);
   const asin = asinMatch ? asinMatch[1] : '';
@@ -10,6 +10,7 @@ const extractProductInfo = (productLink: string, scrapedTitle?: string): Product
   const productInfo: ProductInfo = {
     title: scrapedTitle || (asin ? `Amazon Product ${asin}` : "Product Information Unavailable"),
     image: asin ? `https://m.media-amazon.com/images/I/${asin}.jpg` : "/placeholder.svg",
+    images: images || [],
     link: productLink,
     asin: asin
   };
@@ -66,7 +67,7 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
 
     // Update product info with scraped title if available
     if (scrapingResult.productTitle) {
-      productInfo = extractProductInfo(data.productLink, scrapingResult.productTitle);
+      productInfo = extractProductInfo(data.productLink, scrapingResult.productTitle, scrapingResult.productImages);
     }
 
     const analysis = scrapingResult.analysis;

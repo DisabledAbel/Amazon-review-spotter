@@ -98,9 +98,11 @@ serve(async (req) => {
       analysis: realData.analysis,
       reviews: realData.reviews,
       productVideos: realData.productVideos || [],
+      productImages: realData.productImages || [],
       productTitle: realData.productTitle || '',
       debug: {
         videosFound: realData.productVideos?.length || 0,
+        imagesFound: realData.productImages?.length || 0,
         videoTitles: realData.productVideos?.map(v => v.title) || [],
         productTitle: realData.productTitle || 'Not extracted'
       }
@@ -145,7 +147,12 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     throw new Error('Firecrawl API key not configured');
   }
 
-  // Use Firecrawl to scrape the page
+  // First scrape the main product page for images and videos
+  const productUrl = `https://www.amazon.com/dp/${asin}`;
+  const productImages = await scrapeProductImages(productUrl);
+  const productVideos = await scrapeProductVideos(productUrl);
+
+  // Use Firecrawl to scrape the reviews page
   const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',
     headers: {
@@ -223,15 +230,13 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     console.log('No reviews parsed after retry - likely Amazon blocking or HTML structure changed');
     throw new Error('Amazon blocked the request - unable to parse reviews');
   }
-
-  // Also scrape review videos
-  const productVideos = await scrapeReviewVideos(reviewsUrl);
   
   return {
     totalReviews: reviews.length,
     analysis: analyzeRealReviews(reviews),
     reviews: reviews.slice(0, 10),
     productVideos,
+    productImages,
     productTitle
   };
 }
@@ -432,6 +437,153 @@ function calculateRealAuthenticityScore(patterns: string[], verified: boolean, h
   score += Math.min(helpful * 2, 10);
   score += Math.min(content.length / 10, 15);
   return Math.max(0, Math.min(100, score));
+}
+
+async function scrapeProductImages(productUrl: string): Promise<string[]> {
+  try {
+    console.log('Scraping product images from:', productUrl);
+    
+    if (!firecrawlApiKey) {
+      console.log('Firecrawl API key not configured');
+      return [];
+    }
+
+    const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: productUrl,
+        formats: ['html'],
+        render: true,
+        onlyMainContent: false,
+        includeTags: ['img', 'div', 'span', 'script'],
+        waitFor: 3000
+      })
+    });
+
+    if (!firecrawlResponse.ok) {
+      console.log('Failed to fetch product page for images');
+      return [];
+    }
+
+    const firecrawlData = await firecrawlResponse.json();
+    const html = firecrawlData.data?.html || firecrawlData.html || '';
+
+    if (!html) {
+      console.log('No HTML received for images');
+      return [];
+    }
+
+    console.log('Extracting product images from HTML...');
+    const images: string[] = [];
+    
+    // Extract images from various Amazon patterns
+    const imagePatterns = [
+      // Main product images
+      /"large":"(https:\/\/[^"]+\.jpg[^"]*)"/g,
+      /"hiRes":"(https:\/\/[^"]+\.jpg[^"]*)"/g,
+      // Alternative images
+      /data-old-hires="(https:\/\/[^"]+\.jpg[^"]*)"/g,
+      /data-a-dynamic-image="{&quot;(https:\/\/[^&]+\.jpg[^&]*)&quot;/g,
+      // Image gallery
+      /"mainUrl":"(https:\/\/[^"]+\.jpg[^"]*)"/g,
+    ];
+
+    for (const pattern of imagePatterns) {
+      let match;
+      while ((match = pattern.exec(html)) !== null) {
+        const imageUrl = match[1];
+        // Only add high-quality images (larger than thumbnails)
+        if (imageUrl && !images.includes(imageUrl) && !imageUrl.includes('_SS') && !imageUrl.includes('_SX40_')) {
+          images.push(imageUrl);
+        }
+      }
+    }
+
+    console.log(`Found ${images.length} product images`);
+    return images.slice(0, 10); // Limit to 10 images
+  } catch (error) {
+    console.error('Error scraping product images:', error);
+    return [];
+  }
+}
+
+async function scrapeProductVideos(productUrl: string) {
+  try {
+    console.log('Scraping product videos from:', productUrl);
+    
+    if (!firecrawlApiKey) {
+      console.log('Firecrawl API key not configured');
+      return [];
+    }
+
+    const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url: productUrl,
+        formats: ['html'],
+        render: true,
+        onlyMainContent: false,
+        includeTags: ['div', 'span', 'video', 'source', 'img', 'script'],
+        waitFor: 3000
+      })
+    });
+
+    if (!firecrawlResponse.ok) {
+      console.log('Failed to fetch product page for videos');
+      return [];
+    }
+
+    const firecrawlData = await firecrawlResponse.json();
+    const html = firecrawlData.data?.html || firecrawlData.html || '';
+
+    if (!html) {
+      console.log('No HTML received for videos');
+      return [];
+    }
+
+    console.log('Extracting product videos from HTML...');
+    const videos = [];
+    
+    // Extract video URLs from Amazon's video player data
+    const videoUrlPattern = /"url":"(https:\/\/[^"]+\.mp4[^"]*)"/g;
+    const videoThumbnailPattern = /"slate":"(https:\/\/[^"]+\.jpg[^"]*)"/g;
+    
+    let match;
+    const videoUrls = [];
+    while ((match = videoUrlPattern.exec(html)) !== null) {
+      videoUrls.push(match[1]);
+    }
+    
+    const thumbnails = [];
+    while ((match = videoThumbnailPattern.exec(html)) !== null) {
+      thumbnails.push(match[1]);
+    }
+
+    // Create video objects
+    for (let i = 0; i < Math.min(videoUrls.length, 10); i++) {
+      videos.push({
+        title: `Product Video ${i + 1}`,
+        url: videoUrls[i],
+        thumbnail: thumbnails[i] || '/placeholder.svg',
+        type: 'customer' as const,
+        duration: 'Unknown'
+      });
+    }
+
+    console.log(`Found ${videos.length} product videos`);
+    return videos;
+  } catch (error) {
+    console.error('Error scraping product videos:', error);
+    return [];
+  }
 }
 
 async function scrapeReviewVideos(url: string) {

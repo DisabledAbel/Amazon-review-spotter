@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { secureStorage } from "@/lib/secureStorage";
 import { AIAssistant } from "@/components/AIAssistant";
+import { ProductMediaGallery } from "@/components/ProductMediaGallery";
 import { 
   Brain, 
   AlertTriangle, 
@@ -400,88 +401,12 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
               </CardContent>
             </Card>
 
-          {/* Review Videos Section */}
-          {result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ExternalLink className="h-5 w-5" />
-                  Customer Review Videos from Amazon
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {result.realAnalysis.productVideos.map((video, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-3">
-                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative">
-                        <img 
-                          src={video.thumbnail} 
-                          alt={video.title}
-                          className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => {
-                            if (video.m3u8Url) {
-                              window.open(video.m3u8Url, '_blank');
-                            } else if (video.url !== '#') {
-                              window.open(video.url, '_blank');
-                            }
-                          }}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "/placeholder.svg";
-                          }}
-                        />
-                        {video.duration && (
-                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            {video.duration}
-                          </div>
-                        )}
-                        {video.m3u8Url && (
-                          <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
-                            HLS Stream
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-sm mb-1">{video.title}</h4>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            Customer Review Video
-                          </Badge>
-                          {video.views && (
-                            <span className="text-xs text-muted-foreground">{video.views}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        {video.m3u8Url && (
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            className="w-full flex items-center gap-2"
-                            onClick={() => window.open(video.m3u8Url, '_blank')}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            Play Stream (M3U8)
-                          </Button>
-                        )}
-                        {video.url !== '#' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="w-full flex items-center gap-2"
-                            onClick={() => window.open(video.url, '_blank')}
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                            View on Amazon
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Product Media Gallery - Images and Videos from Amazon */}
+          <ProductMediaGallery 
+            images={result.productInfo.images}
+            videos={result.realAnalysis?.productVideos}
+            productTitle={result.productInfo.title}
+          />
 
 
 
