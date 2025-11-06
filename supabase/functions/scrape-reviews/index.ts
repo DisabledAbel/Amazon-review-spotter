@@ -152,7 +152,7 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
   const productImages = await scrapeProductImages(productUrl);
   const productVideos = await scrapeProductVideos(productUrl);
 
-  // Use Firecrawl to scrape the reviews page
+  // Use Firecrawl to scrape the reviews page with video and image tags
   const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',
     headers: {
@@ -164,8 +164,8 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
       formats: ['html'],
       render: true,
       onlyMainContent: false,
-      includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section'],
-      waitFor: 3000
+      includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section', 'video', 'source'],
+      waitFor: 5000
     })
   });
 
@@ -230,13 +230,19 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     console.log('No reviews parsed after retry - likely Amazon blocking or HTML structure changed');
     throw new Error('Amazon blocked the request - unable to parse reviews');
   }
+
+  // Extract videos and images from review content
+  const reviewVideos = extractReviewVideos(html);
+  const reviewImages = extractReviewImages(html);
+  
+  console.log(`Found ${reviewVideos.length} review videos and ${reviewImages.length} review images`);
   
   return {
     totalReviews: reviews.length,
     analysis: analyzeRealReviews(reviews),
     reviews: reviews.slice(0, 10),
-    productVideos,
-    productImages,
+    productVideos: [...reviewVideos, ...productVideos],
+    productImages: [...reviewImages, ...productImages],
     productTitle
   };
 }
@@ -586,101 +592,124 @@ async function scrapeProductVideos(productUrl: string) {
   }
 }
 
-async function scrapeReviewVideos(url: string) {
+function extractReviewVideos(html: string) {
+  console.log('Extracting videos from review content...');
+  const videos = [];
+  
   try {
-    // Navigate to the reviews page specifically
-    const reviewsUrl = url.includes('/reviews/') ? url : url.replace('/dp/', '/product-reviews/');
+    // Pattern 1: Amazon customer video widget data
+    const videoWidgetPattern = /"videoUrl":"([^"]+)"/g;
+    const thumbnailPattern = /"thumbnailUrl":"([^"]+)"/g;
+    const titlePattern = /"title":"([^"]+)"/g;
     
-    console.log('Scraping review videos via Firecrawl from:', reviewsUrl);
-
-    if (!firecrawlApiKey) {
-      console.log('Firecrawl API key not available for video scraping');
-      return [];
-    }
-
-    // Use Firecrawl to scrape the page
-    const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${firecrawlApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        url: reviewsUrl,
-        formats: ['html'],
-        onlyMainContent: false,
-        includeTags: ['div', 'span', 'video', 'source', 'img'],
-        waitFor: 2000
-      })
-    });
-
-    if (!firecrawlResponse.ok) {
-      console.log('Failed to fetch reviews page for videos via Firecrawl');
-      return [];
-    }
-
-    const firecrawlData = await firecrawlResponse.json();
-    const html = firecrawlData.data?.html || firecrawlData.html || '';
-
-    if (!html) {
-      console.log('No HTML received from Firecrawl for videos');
-      return [];
-    }
-
-    console.log('HTML length for video search:', html.length);
+    let match;
+    const videoUrls = [];
+    const thumbnails = [];
+    const titles = [];
     
-    const videos = [];
-
-    // First, create some test videos to ensure the display works
-    videos.push({
-      title: 'Test Customer Review Video 1',
-      url: 'https://www.amazon.com/test-video-1',
-      thumbnail: '/placeholder.svg',
-      type: 'review' as const,
-      duration: '2:30',
-      views: '1.2K'
-    });
-
-    videos.push({
-      title: 'Test Customer Review Video 2', 
-      url: 'https://www.amazon.com/test-video-2',
-      thumbnail: '/placeholder.svg',
-      m3u8Url: 'https://example.com/test.m3u8',
-      type: 'review' as const,
-      duration: '1:45',
-      views: '856'
-    });
-
-    // Simplified video extraction patterns
-    const videoPatterns = [
-      /video/gi,
-      /\.mp4/gi,
-      /\.m3u8/gi
-    ];
-
-    let foundVideoElements = 0;
-    for (const pattern of videoPatterns) {
-      const matches = html.match(pattern);
-      if (matches) {
-        foundVideoElements += matches.length;
+    while ((match = videoWidgetPattern.exec(html)) !== null) {
+      videoUrls.push(match[1].replace(/\\u002F/g, '/'));
+    }
+    
+    while ((match = thumbnailPattern.exec(html)) !== null) {
+      thumbnails.push(match[1].replace(/\\u002F/g, '/'));
+    }
+    
+    while ((match = titlePattern.exec(html)) !== null) {
+      titles.push(match[1]);
+    }
+    
+    // Pattern 2: Direct video elements
+    const videoElementPattern = /<video[^>]*src="([^"]+)"/gi;
+    while ((match = videoElementPattern.exec(html)) !== null) {
+      videoUrls.push(match[1]);
+    }
+    
+    // Pattern 3: m3u8 streaming URLs
+    const m3u8Pattern = /"(https?:\/\/[^"]*\.m3u8[^"]*)"/g;
+    while ((match = m3u8Pattern.exec(html)) !== null) {
+      const url = match[1].replace(/\\u002F/g, '/').replace(/\\/g, '');
+      if (url.includes('amazon')) {
+        videoUrls.push(url);
       }
     }
-
-    console.log('Video-related elements found in HTML:', foundVideoElements);
-
-    console.log('Total videos found (including test videos):', videos.length);
-    return videos.slice(0, 8); // Limit to 8 videos
+    
+    // Pattern 4: MP4 video files
+    const mp4Pattern = /"(https?:\/\/[^"]*\.mp4[^"]*)"/g;
+    while ((match = mp4Pattern.exec(html)) !== null) {
+      const url = match[1].replace(/\\u002F/g, '/').replace(/\\/g, '');
+      if (url.includes('amazon')) {
+        videoUrls.push(url);
+      }
+    }
+    
+    // Create video objects
+    const uniqueUrls = [...new Set(videoUrls)];
+    for (let i = 0; i < Math.min(uniqueUrls.length, 10); i++) {
+      videos.push({
+        title: titles[i] || `Customer Review Video ${i + 1}`,
+        url: uniqueUrls[i],
+        thumbnail: thumbnails[i] || '/placeholder.svg',
+        type: 'review' as const,
+        duration: 'Unknown',
+        views: 'N/A'
+      });
+    }
+    
+    console.log(`Extracted ${videos.length} videos from reviews`);
   } catch (error) {
-    console.error('Error scraping review videos:', error);
-    // Return test videos even if scraping fails
-    return [{
-      title: 'Test Customer Review Video 1',
-      url: 'https://www.amazon.com/test-video-1',
-      thumbnail: '/placeholder.svg',
-      type: 'review' as const,
-      duration: '2:30',
-      views: '1.2K'
-    }];
+    console.error('Error extracting review videos:', error);
+  }
+  
+  return videos;
+}
+
+function extractReviewImages(html: string) {
+  console.log('Extracting images from review content...');
+  const images = [];
+  
+  try {
+    // Pattern 1: Review image thumbnails
+    const reviewImagePattern = /data-a-image-name="review-image-gallery"[^>]*src="([^"]+)"/gi;
+    let match;
+    
+    while ((match = reviewImagePattern.exec(html)) !== null) {
+      images.push(match[1]);
+    }
+    
+    // Pattern 2: Customer image uploads in reviews
+    const customerImagePattern = /<img[^>]*class="[^"]*review-image[^"]*"[^>]*src="([^"]+)"/gi;
+    while ((match = customerImagePattern.exec(html)) !== null) {
+      images.push(match[1]);
+    }
+    
+    // Pattern 3: cr-lightbox-image-thumbnail (common Amazon review image class)
+    const lightboxPattern = /<img[^>]*class="[^"]*cr-lightbox-image-thumbnail[^"]*"[^>]*src="([^"]+)"/gi;
+    while ((match = lightboxPattern.exec(html)) !== null) {
+      images.push(match[1]);
+    }
+    
+    // Pattern 4: JSON embedded image data
+    const jsonImagePattern = /"large":"(https:\/\/[^"]*images-na\.ssl-images-amazon\.com[^"]*)"/g;
+    while ((match = jsonImagePattern.exec(html)) !== null) {
+      const url = match[1].replace(/\\u002F/g, '/').replace(/\\/g, '');
+      images.push(url);
+    }
+    
+    // Filter and clean unique images
+    const uniqueImages = [...new Set(images)]
+      .filter(img => img && img.includes('amazon') && !img.includes('sprite'))
+      .map(img => {
+        // Replace thumbnail size with larger version
+        return img.replace(/\._[A-Z0-9]+_\./, '._AC_SL1500_.');
+      })
+      .slice(0, 50); // Limit to 50 images
+    
+    console.log(`Extracted ${uniqueImages.length} images from reviews`);
+    return uniqueImages;
+  } catch (error) {
+    console.error('Error extracting review images:', error);
+    return [];
   }
 }
 
