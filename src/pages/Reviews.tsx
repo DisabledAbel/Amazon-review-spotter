@@ -209,8 +209,7 @@ if (!user && !isGuest) {
                 
                 <TabsContent value="videos">
                   <ProductVideos 
-                    productTitle={analysisResult.productInfo.title}
-                    productAsin={analysisResult.productInfo.asin}
+                    videos={analysisResult.realAnalysis?.productVideos}
                   />
                 </TabsContent>
               </Tabs>
