@@ -162,7 +162,6 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     body: JSON.stringify({
       url: reviewsUrl,
       formats: ['html'],
-      render: true,
       onlyMainContent: false,
       includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section', 'video', 'source'],
       waitFor: 5000
@@ -206,7 +205,6 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
       body: JSON.stringify({
         url: retryUrl,
         formats: ['html'],
-        render: true,
         onlyMainContent: false,
         includeTags: ['div', 'span', 'h1', 'h2', 'p', 'a', 'img', 'article', 'section'],
         waitFor: 6000
@@ -463,7 +461,6 @@ async function scrapeProductImages(productUrl: string): Promise<string[]> {
       body: JSON.stringify({
         url: productUrl,
         formats: ['html'],
-        render: true,
         onlyMainContent: false,
         includeTags: ['img', 'div', 'span', 'script'],
         waitFor: 3000
@@ -535,7 +532,6 @@ async function scrapeProductVideos(productUrl: string) {
       body: JSON.stringify({
         url: productUrl,
         formats: ['html'],
-        render: true,
         onlyMainContent: false,
         includeTags: ['div', 'span', 'video', 'source', 'img', 'script'],
         waitFor: 3000
