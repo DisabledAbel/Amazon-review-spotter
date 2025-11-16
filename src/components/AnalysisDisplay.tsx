@@ -23,21 +23,24 @@ import {
   Bookmark,
   BookmarkCheck,
   Loader2,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface AnalysisDisplayProps {
   result: AnalysisResult;
   onReset: () => void;
+  onRefresh: (productUrl: string) => Promise<void>;
 }
 
-export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
+export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Store product context for chatbot using secure storage
   useEffect(() => {
@@ -149,6 +152,40 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
     }
   };
 
+  const handleRefreshCache = async () => {
+    setRefreshing(true);
+    
+    try {
+      // Delete the cache entry for this product
+      const { error: deleteError } = await supabase
+        .from('scraped_products_cache')
+        .delete()
+        .eq('asin', result.productInfo.asin);
+
+      if (deleteError) {
+        console.error('Error deleting cache:', deleteError);
+        throw new Error('Failed to clear cache');
+      }
+
+      toast({
+        title: "Cache Cleared",
+        description: "Refreshing analysis with latest data...",
+      });
+
+      // Trigger re-analysis
+      await onRefresh(result.productInfo.link);
+      
+    } catch (error) {
+      console.error('Error refreshing cache:', error);
+      toast({
+        title: "Refresh Failed",
+        description: error instanceof Error ? error.message : "Failed to refresh analysis",
+        variant: "destructive"
+      });
+      setRefreshing(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -161,6 +198,16 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
               Analyze Another Product
             </Button>
             <div className="flex items-center gap-4">
+              <Button 
+                onClick={handleRefreshCache}
+                disabled={refreshing}
+                variant="outline"
+                className="flex items-center gap-2"
+                title="Clear cache and fetch fresh data"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? "Refreshing..." : "Refresh Data"}
+              </Button>
               <Button 
                 onClick={handleSaveProduct}
                 disabled={saving || isSaved}

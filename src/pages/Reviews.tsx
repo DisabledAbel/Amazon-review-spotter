@@ -110,6 +110,29 @@ if (!user && !isGuest) {
     }
   };
 
+  const handleRefresh = async (productUrl: string) => {
+    setIsAnalyzing(true);
+    try {
+      const result = await analyzeReview({ productLink: productUrl });
+      setAnalysisResult(result);
+      setActiveTab("analysis");
+      
+      toast({
+        title: "Analysis Refreshed",
+        description: "Successfully refreshed with latest data",
+      });
+    } catch (error) {
+      console.error('Refresh failed:', error);
+      toast({
+        title: "Refresh Failed",
+        description: "Unable to refresh analysis. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleReset = () => {
     setAnalysisResult(null);
   };
@@ -204,7 +227,11 @@ if (!user && !isGuest) {
                 </TabsList>
                 
                 <TabsContent value="analysis">
-                  <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+                  <AnalysisDisplay 
+                    result={analysisResult} 
+                    onReset={handleReset}
+                    onRefresh={handleRefresh}
+                  />
                 </TabsContent>
                 
                 <TabsContent value="videos">
