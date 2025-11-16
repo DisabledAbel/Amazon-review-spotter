@@ -91,6 +91,9 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
       redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
     }
 
+    // Extract AI product summary from analysis if available
+    const aiProductSummary = analysis.aiProductSummary || null;
+
     // Call video finder (now using Gemini AI) to get AI-curated videos
     let aiVideos = [];
     try {
@@ -132,7 +135,8 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
           suspiciousPatterns: review.suspiciousPatterns
         })),
         productVideos: scrapingResult.productVideos || [],
-        onlineVideos: aiVideos.slice(0, 6) // Top 6 AI-curated videos
+        onlineVideos: aiVideos.slice(0, 6), // Top 6 AI-curated videos
+        aiProductSummary // Include AI-generated product summary
       }
     };
 
