@@ -1,7 +1,11 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -69,7 +73,44 @@ serve(async (req) => {
     const asin = asinMatch[1];
     const reviewsUrl = `https://www.amazon.com/product-reviews/${asin}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews`;
     
-    console.log('Scraping real reviews for ASIN:', asin);
+    console.log('Checking cache for ASIN:', asin);
+    
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Check cache first
+    const { data: cachedData, error: cacheError } = await supabase
+      .from('scraped_products_cache')
+      .select('*')
+      .eq('asin', asin)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    
+    if (!cacheError && cachedData) {
+      console.log('Cache hit! Returning cached data for ASIN:', asin);
+      return new Response(JSON.stringify({
+        success: true,
+        productAsin: asin,
+        reviewsUrl,
+        totalReviews: cachedData.total_reviews || 0,
+        analysis: cachedData.analysis,
+        reviews: cachedData.reviews || [],
+        productVideos: cachedData.product_videos || [],
+        productImages: cachedData.product_images || [],
+        productTitle: cachedData.product_title || '',
+        fromCache: true,
+        debug: {
+          videosFound: (cachedData.product_videos as any[])?.length || 0,
+          imagesFound: (cachedData.product_images as any[])?.length || 0,
+          videoTitles: (cachedData.product_videos as any[])?.map((v: any) => v.title) || [],
+          productTitle: cachedData.product_title || 'Not extracted'
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    console.log('Cache miss. Scraping real reviews for ASIN:', asin);
     
     // Only get real data - no simulation fallback
     const realData = await scrapeRealReviews(reviewsUrl, asin);
@@ -90,16 +131,64 @@ serve(async (req) => {
       throw new Error('REAL DATA ONLY: No valid real reviews found. Only authentic Amazon review data is returned.');
     }
     
+    // Generate AI product summary
+    console.log('Generating AI product summary...');
+    let aiProductSummary = '';
+    try {
+      aiProductSummary = await generateProductSummary(
+        realData.productTitle || '',
+        validReviews,
+        realData.analysis
+      );
+      console.log('AI summary generated successfully');
+    } catch (error) {
+      console.error('Error generating AI summary:', error);
+      aiProductSummary = 'Unable to generate AI summary at this time.';
+    }
+    
+    // Store in cache with AI summary
+    const analysisWithSummary = {
+      ...realData.analysis,
+      aiProductSummary
+    };
+    
+    try {
+      const { error: insertError } = await supabase
+        .from('scraped_products_cache')
+        .upsert({
+          asin,
+          product_title: realData.productTitle,
+          product_images: realData.productImages || [],
+          product_videos: realData.productVideos || [],
+          reviews: validReviews,
+          analysis: analysisWithSummary,
+          total_reviews: realData.totalReviews,
+          scraped_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        }, {
+          onConflict: 'asin'
+        });
+      
+      if (insertError) {
+        console.error('Error caching data:', insertError);
+      } else {
+        console.log('Successfully cached data for ASIN:', asin);
+      }
+    } catch (cacheInsertError) {
+      console.error('Cache insertion error:', cacheInsertError);
+    }
+    
     return new Response(JSON.stringify({
       success: true,
       productAsin: asin,
       reviewsUrl,
       totalReviews: realData.totalReviews,
-      analysis: realData.analysis,
-      reviews: realData.reviews,
+      analysis: analysisWithSummary,
+      reviews: validReviews,
       productVideos: realData.productVideos || [],
       productImages: realData.productImages || [],
       productTitle: realData.productTitle || '',
+      fromCache: false,
       debug: {
         videosFound: realData.productVideos?.length || 0,
         imagesFound: realData.productImages?.length || 0,
@@ -748,4 +837,85 @@ function analyzeRealReviews(reviews: ReviewData[]) {
     ratingDistribution,
     verdict
   };
+}
+
+async function generateProductSummary(
+  productTitle: string,
+  reviews: ReviewData[],
+  analysis: any
+): Promise<string> {
+  if (!lovableApiKey) {
+    console.error('LOVABLE_API_KEY not configured');
+    return 'AI summary unavailable - API key not configured';
+  }
+
+  try {
+    // Prepare review samples for AI (top 10 reviews)
+    const reviewSamples = reviews.slice(0, 10).map(r => ({
+      rating: r.rating,
+      title: r.title,
+      content: r.content.substring(0, 300), // Truncate long reviews
+      verified: r.verified
+    }));
+
+    const prompt = `You are analyzing Amazon product reviews for "${productTitle}". 
+
+Review Data:
+- Total Reviews: ${reviews.length}
+- Average Authenticity Score: ${analysis.averageIndividualScore}/100
+- Verification Rate: ${analysis.verificationRate}%
+- Overall Verdict: ${analysis.verdict}
+
+Sample Reviews:
+${reviewSamples.map((r, i) => `
+${i + 1}. Rating: ${r.rating}/5 ${r.verified ? '[Verified]' : '[Unverified]'}
+   Title: ${r.title}
+   Content: ${r.content}
+`).join('\n')}
+
+Create a comprehensive product summary in 3-4 paragraphs that includes:
+1. Product Overview: What the product is and who it's for
+2. Key Strengths: Main positive points from customer reviews
+3. Common Concerns: Issues or complaints mentioned by customers
+4. Overall Recommendation: Your assessment based on the review analysis
+
+Be objective, factual, and helpful. Focus on insights that would help a potential buyer make an informed decision.`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert product analyst who creates clear, helpful summaries based on customer review data.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lovable AI API error:', response.status, errorText);
+      return 'Unable to generate AI summary at this time.';
+    }
+
+    const data = await response.json();
+    const summary = data.choices?.[0]?.message?.content || 'Unable to generate summary.';
+    
+    return summary;
+  } catch (error) {
+    console.error('Error in generateProductSummary:', error);
+    return 'Error generating AI summary.';
+  }
 }
