@@ -72,7 +72,14 @@ const { user, loading, isGuest } = useAuth();
       // Enhanced error handling with user-friendly messages
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
-      if (errorMessage.includes('Authentication required') || errorMessage.includes('401')) {
+      if (errorMessage.includes('AMAZON_BLOCKED')) {
+        toast({
+          title: "⚠️ Amazon Bot Protection Active",
+          description: "Amazon blocked scraping. Wait 5-10 minutes and try the Refresh Data button. Check Videos tab for alternatives.",
+          variant: "default",
+          duration: 8000,
+        });
+      } else if (errorMessage.includes('Authentication required') || errorMessage.includes('401')) {
         toast({
           title: "Authentication Error",
           description: "Please log in again to continue.",

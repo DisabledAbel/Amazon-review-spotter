@@ -227,44 +227,95 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
           </div>
 
           {/* Genuineness Score */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5" />
-                Overall Review Authenticity Score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-4">
-                <div className="flex-1">
-                  <Progress value={result.realAnalysis?.authenticityPercentage || result.genuinenessScore * 10} className="h-3" />
+          {result.realAnalysis?.isBlocked ? (
+            <Card className="border-orange-300 bg-orange-50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-orange-800">
+                  <AlertTriangle className="h-5 w-5" />
+                  Amazon Bot Protection Detected
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-white rounded-lg border border-orange-200">
+                  <p className="text-sm text-slate-700 leading-relaxed">
+                    {result.verdictExplanation}
+                  </p>
                 </div>
-                <div className={`text-2xl font-bold ${getScoreColor(result.genuinenessScore)}`}>
-                  {result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10)}%
+                
+                <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <Sparkles className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-blue-900 text-sm">Good News!</p>
+                    <p className="text-sm text-blue-700">
+                      {result.realAnalysis.onlineVideos && result.realAnalysis.onlineVideos.length > 0 
+                        ? `We found ${result.realAnalysis.onlineVideos.length} YouTube video reviews for you. Check the Videos tab above!`
+                        : "You can still read reviews directly on Amazon or try the Videos tab for YouTube reviews."}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <p className="mt-2 text-slate-600">{result.scoreExplanation}</p>
-              
-              {result.realAnalysis && (
-                <div className="mt-4 grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.totalReviews}</div>
-                    <div className="text-sm text-blue-600">Total Reviews</div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Button 
+                    onClick={() => window.open(result.productInfo.link, '_blank')}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View on Amazon
+                  </Button>
+                  <Button 
+                    onClick={handleRefreshCache}
+                    disabled={refreshing}
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    Try Again
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Brain className="h-5 w-5" />
+                  Overall Review Authenticity Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Progress value={result.realAnalysis?.authenticityPercentage || result.genuinenessScore * 10} className="h-3" />
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.verificationRate}%</div>
-                    <div className="text-sm text-blue-600">Verified Purchases</div>
+                  <div className={`text-2xl font-bold ${getScoreColor(result.genuinenessScore)}`}>
+                    {result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10)}%
                   </div>
-                  <div className="text-center">
-                    <div className="text-lg font-semibold text-blue-800">
-                      {Object.values(result.realAnalysis.ratingDistribution).reduce((a, b) => a + b, 0)}
+                </div>
+                <p className="mt-2 text-slate-600">{result.scoreExplanation}</p>
+                
+                {result.realAnalysis && !result.realAnalysis.isBlocked && (
+                  <div className="mt-4 grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.totalReviews}</div>
+                      <div className="text-sm text-blue-600">Total Reviews</div>
                     </div>
-                    <div className="text-sm text-blue-600">Analyzed Reviews</div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.verificationRate}%</div>
+                      <div className="text-sm text-blue-600">Verified Purchases</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-lg font-semibold text-blue-800">
+                        {Object.values(result.realAnalysis.ratingDistribution).reduce((a, b) => a + b, 0)}
+                      </div>
+                      <div className="text-sm text-blue-600">Analyzed Reviews</div>
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Weird/Suspicious Reviews - Enhanced */}
           <Card className={result.redFlags.length > 0 ? "border-red-200 bg-red-50/30" : "border-green-200 bg-green-50/30"}>

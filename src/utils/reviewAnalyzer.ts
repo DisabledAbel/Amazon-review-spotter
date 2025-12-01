@@ -167,27 +167,30 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
         console.log('AI video finder also failed:', videoError);
       }
 
-      // Return a helpful error with AI videos
+      // Return a helpful error with alternatives
       return {
         genuinenessScore: 0,
-        scoreExplanation: "⚠️ Amazon has detected and blocked automated review scraping. This is a common protection mechanism.",
+        scoreExplanation: "⚠️ Amazon has temporarily blocked automated scraping to protect against bots. This is a common anti-bot measure that affects all scraping tools.",
         redFlags: [
-          "🛑 Direct Amazon scraping is currently blocked",
-          "💡 Try using the YouTube Search feature to find video reviews",
-          "📊 AI-powered video analysis is still available below"
-        ],
-        finalVerdict: "Unable to Analyze - Amazon Blocking",
-        verdictExplanation: "Amazon's anti-bot protection is preventing direct review scraping. We recommend using the YouTube Search feature to find authentic video reviews, or try again later. AI-curated videos are still available.",
+          "🛑 Amazon's Bot Protection Detected",
+          "⏰ This is temporary - try again in 5-10 minutes",
+          "💡 Alternative: Check the Videos tab for YouTube product reviews",
+          "🔄 Use the Refresh Data button to retry after waiting",
+          aiVideos.length > 0 ? `✅ Found ${aiVideos.length} AI-curated video reviews as alternative` : "💭 You can still read reviews directly on Amazon"
+        ].filter(Boolean),
+        finalVerdict: "Temporarily Unable to Analyze",
+        verdictExplanation: `Amazon's security system has blocked automated review scraping. This happens when:\n\n• Multiple scraping requests are made in a short time\n• Amazon's bot detection identifies automated access\n• Your IP address triggers Amazon's rate limiting\n\n**What you can do:**\n1. Wait 5-10 minutes and click "Refresh Data"\n2. Check the Videos tab for YouTube reviews${aiVideos.length > 0 ? ' (already loaded for you!)' : ''}\n3. Visit the product page directly on Amazon to read reviews manually\n4. Try a different product to test if blocking persists`,
         productInfo,
-        realAnalysis: aiVideos.length > 0 ? {
+        realAnalysis: {
           totalReviews: 0,
           verificationRate: 0,
           authenticityPercentage: 0,
           ratingDistribution: {},
           individualReviews: [],
           productVideos: [],
-          onlineVideos: aiVideos.slice(0, 6)
-        } : undefined
+          onlineVideos: aiVideos.slice(0, 6),
+          isBlocked: true // Flag to show special UI
+        }
       };
     }
     
