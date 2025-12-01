@@ -57,5 +57,6 @@ export interface AnalysisResult {
     onlineVideos?: OnlineVideo[];
     productVideos?: ProductVideo[];
     aiProductSummary?: string;
+    isBlocked?: boolean;
   };
 }
