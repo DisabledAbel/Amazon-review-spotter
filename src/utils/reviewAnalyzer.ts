@@ -148,24 +148,26 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
   } catch (error) {
     console.error('Error during real review analysis:', error);
     
+    // Try to get AI-curated videos as an alternative for ANY error
+    let aiVideos = [];
+    try {
+      const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
+        body: { 
+          productTitle: productInfo.title,
+          productAsin: productInfo.asin 
+        }
+      });
+      
+      if (!videoError && videoData?.success) {
+        aiVideos = videoData.videos || [];
+        console.log(`Found ${aiVideos.length} AI-curated videos as fallback`);
+      }
+    } catch (videoError) {
+      console.log('AI video finder also failed:', videoError);
+    }
+    
     // Check if Amazon blocked the request
     if (error.message === 'AMAZON_BLOCKED') {
-      // Try to get AI-curated videos as an alternative
-      let aiVideos = [];
-      try {
-        const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
-          body: { 
-            productTitle: productInfo.title,
-            productAsin: productInfo.asin 
-          }
-        });
-        
-        if (!videoError && videoData?.success) {
-          aiVideos = videoData.videos || [];
-        }
-      } catch (videoError) {
-        console.log('AI video finder also failed:', videoError);
-      }
 
       // Return a helpful error with alternatives
       return {
