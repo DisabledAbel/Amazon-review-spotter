@@ -17,3 +17,4 @@
     "node": ">=18"
   }
 }
+"build:dev": "vite build --mode development"
