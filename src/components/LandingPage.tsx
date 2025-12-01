@@ -59,16 +59,27 @@ export const LandingPage = () => {
                 Don't get fooled by fake reviews. Our AI highlights clear risk signals and review patterns so you can make informed decisions. By combining our insights with product details and seller history, you can avoid wasting money on items that haven't earned your trust.
               </p>
               
-              <Button 
-                onClick={() => navigate('/auth')}
-                size="lg" 
-                className="h-14 px-8 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                Get Started Free
-              </Button>
+              <div className="flex items-center justify-center gap-4 flex-wrap">
+                <Button 
+                  onClick={() => navigate('/reviews')}
+                  size="lg" 
+                  className="h-14 px-8 text-lg font-semibold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Try It Now - No Signup Needed
+                </Button>
+                
+                <Button 
+                  onClick={() => navigate('/auth')}
+                  size="lg"
+                  variant="outline"
+                  className="h-14 px-8 text-lg font-semibold"
+                >
+                  Sign Up to Save Results
+                </Button>
+              </div>
               
               <p className="text-sm text-muted-foreground">
-                Free forever • No credit card required • Secure email authentication
+                Free forever • No credit card required • Instant analysis
               </p>
             </div>
           </div>

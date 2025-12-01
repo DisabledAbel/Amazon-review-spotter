@@ -208,15 +208,17 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 {refreshing ? "Refreshing..." : "Refresh Data"}
               </Button>
-              <Button 
-                onClick={handleSaveProduct}
-                disabled={saving || isSaved}
-                variant={isSaved ? "outline" : "default"}
-                className="flex items-center gap-2"
-              >
-                {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-                {saving ? "Saving..." : isSaved ? "Saved" : "Save Product"}
-              </Button>
+              {user && (
+                <Button 
+                  onClick={handleSaveProduct}
+                  disabled={saving || isSaved}
+                  variant={isSaved ? "outline" : "default"}
+                  className="flex items-center gap-2"
+                >
+                  {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                  {saving ? "Saving..." : isSaved ? "Saved" : "Save Product"}
+                </Button>
+              )}
               <div className="flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />
                 <span className="font-semibold text-foreground">Analysis Complete</span>
