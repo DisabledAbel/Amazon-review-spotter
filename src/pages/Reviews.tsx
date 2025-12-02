@@ -214,6 +214,7 @@ const { user, loading, isGuest } = useAuth();
                 <TabsContent value="videos">
                   <ProductVideos 
                     videos={analysisResult.realAnalysis?.productVideos}
+                    onlineVideos={analysisResult.realAnalysis?.onlineVideos}
                   />
                 </TabsContent>
               </Tabs>
