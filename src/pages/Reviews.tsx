@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { ReviewInput } from "@/components/ReviewInput";
 import { AnalysisDisplay } from "@/components/AnalysisDisplay";
+import { AnalysisSkeleton } from "@/components/AnalysisSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
 import { ReviewTips } from "@/components/ReviewTips";
@@ -9,7 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProductVideos } from "@/components/ProductVideos";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
-import { Shield, Search, AlertTriangle, Video } from "lucide-react";
+import { Shield, Search, AlertTriangle, Video, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -165,7 +166,24 @@ const { user, loading, isGuest } = useAuth();
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content Area */}
           <div className="lg:col-span-2">
-            {!analysisResult ? (
+            {isAnalyzing ? (
+              <div className="space-y-6">
+                <div className="bg-card rounded-xl p-6 shadow-sm border">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-primary/10 rounded-lg">
+                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Analyzing Product Reviews...</h2>
+                      <p className="text-muted-foreground">
+                        Scraping reviews, detecting patterns, and generating AI insights. This may take a moment.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <AnalysisSkeleton />
+              </div>
+            ) : !analysisResult ? (
               <div className="space-y-8">
                 {/* Introduction */}
                 <div className="bg-card rounded-xl p-6 shadow-sm border">
