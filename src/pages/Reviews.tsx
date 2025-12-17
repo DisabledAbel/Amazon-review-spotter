@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { ReviewInput } from "@/components/ReviewInput";
 import { AnalysisDisplay } from "@/components/AnalysisDisplay";
@@ -8,6 +8,7 @@ import { ChatBot } from "@/components/ChatBot";
 import { ReviewTips } from "@/components/ReviewTips";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProductVideos } from "@/components/ProductVideos";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle, Video, Loader2 } from "lucide-react";
@@ -137,13 +138,20 @@ const { user, loading, isGuest } = useAuth();
     setAnalysisResult(null);
   };
 
+  const handlePullToRefresh = useCallback(async () => {
+    if (analysisResult?.productInfo?.asin) {
+      const productUrl = `https://www.amazon.com/dp/${analysisResult.productInfo.asin}`;
+      await handleRefresh(productUrl);
+    }
+  }, [analysisResult]);
+
   // Show minimal loading only while checking auth
   if (loading) {
     return null; // Don't block the UI while auth loads
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <PullToRefresh onRefresh={handlePullToRefresh} className="min-h-screen bg-background">
       <ThemeToggle />
       <AppSidebar />
       
@@ -255,7 +263,7 @@ const { user, loading, isGuest } = useAuth();
           </div>
         </div>
       </div>
-    </div>
+    </PullToRefresh>
   );
 };
 
