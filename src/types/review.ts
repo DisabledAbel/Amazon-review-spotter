@@ -53,9 +53,11 @@ export interface AnalysisResult {
       verified: boolean;
       authenticityScore: number;
       suspiciousPatterns: string[];
+      images?: string[];
     }[];
     onlineVideos?: OnlineVideo[];
     productVideos?: ProductVideo[];
+    reviewImages?: string[];
     aiProductSummary?: string;
     isBlocked?: boolean;
   };

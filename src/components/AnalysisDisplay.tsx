@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { secureStorage } from "@/lib/secureStorage";
 import { AIAssistant } from "@/components/AIAssistant";
 import { ProductMediaGallery } from "@/components/ProductMediaGallery";
+import { ProductVideos } from "@/components/ProductVideos";
 import { 
   Brain, 
   AlertTriangle, 
@@ -382,14 +383,21 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
             </Card>
           )}
 
-          {/* YouTube Videos Section - Disabled */}
-
-          {/* Product Media Gallery - Images and Videos from Amazon */}
+          {/* Product Media Gallery - Images from Amazon */}
           <ProductMediaGallery 
             images={result.productInfo.images}
             videos={result.realAnalysis?.productVideos}
             productTitle={result.productInfo.title}
           />
+
+          {/* Video Reviews Section - YouTube + Amazon */}
+          {((result.realAnalysis?.onlineVideos && result.realAnalysis.onlineVideos.length > 0) || 
+            (result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0)) && (
+            <ProductVideos 
+              videos={result.realAnalysis?.productVideos}
+              onlineVideos={result.realAnalysis?.onlineVideos}
+            />
+          )}
 
 
 
