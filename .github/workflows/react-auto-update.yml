@@ -30,8 +30,15 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Check lockfile exists
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "Error: package-lock.json not found. Please commit your lockfile."
+            exit 1
+          fi
+
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build React app
         run: npx vite build
