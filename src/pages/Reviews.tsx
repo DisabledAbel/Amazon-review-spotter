@@ -14,13 +14,19 @@ import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle, Video, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { analytics } from "@/lib/analytics";
 
 const Reviews = () => {
-const { user, loading, isGuest } = useAuth();
+  const { user, loading, isGuest } = useAuth();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState("analysis");
   const { toast } = useToast();
+
+  // Track page view
+  useEffect(() => {
+    analytics.pageView('reviews');
+  }, []);
 
   // Listen for product analysis requests
   useEffect(() => {
@@ -53,12 +59,20 @@ const { user, loading, isGuest } = useAuth();
 
   const handleAnalyze = async (reviewData: ReviewData) => {
     // No authentication required for basic analysis
+    const asin = reviewData.productLink?.match(/\/dp\/([A-Z0-9]+)/i)?.[1] || 'unknown';
+    analytics.analysisStarted(asin);
 
     setIsAnalyzing(true);
     
     try {
       const result = await analyzeReview(reviewData);
       setAnalysisResult(result);
+      
+      // Track successful analysis
+      analytics.analysisCompleted(
+        result.productInfo.asin || asin,
+        result.genuinenessScore
+      );
       
       // Switch to analysis tab to show results
       setActiveTab("analysis");
@@ -70,10 +84,12 @@ const { user, loading, isGuest } = useAuth();
       window.dispatchEvent(productAnalyzedEvent);
     } catch (error) {
       console.error('Analysis failed:', error);
-      
-      // Enhanced error handling with user-friendly messages
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       
+      // Track error
+      analytics.analysisError(asin, errorMessage);
+      
+      // Enhanced error handling with user-friendly messages
       if (errorMessage.includes('AMAZON_BLOCKED')) {
         toast({
           title: "⚠️ Amazon Bot Protection Active",
