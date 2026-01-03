@@ -26,6 +26,18 @@ serve(async (req) => {
   }
 
   try {
+    // Verify authentication - require Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ 
+        error: 'Authentication required',
+        success: false 
+      }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ 
         error: 'Missing LOVABLE_API_KEY' 
