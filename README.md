@@ -34,15 +34,15 @@ The tool feeds review content and reviewer metadata into a language model using 
 - Red flags (if detected)
 - Final verdict (6-level system)
 
----
-
+--
 ## 🛠 installation 
-[![Install Amazon Review Validator](https://img.shields.io/badge/Install%20App-Amazon%20Review%20Validator-blue?style=for-the-badge&logo=github)](https://github.com/apps/amazon-review-validator/installations/new)
+[![Open Application](https://img.shields.io/badge/Open-Application-blue?style=for-the-badge)](https://review-sensei-detector.lovable.app)
+
 
 
 ## 🚀 How to Set Up Amazon Review Validator
 
-Follow these steps to get started with the **Amazon Review Validator GitHub App**:
+Follow these steps to get started with the **Amazon Review Validator**
 #### 🍎 iPhone / iPad (Safari)
 
 1. Open the app in Safari.
