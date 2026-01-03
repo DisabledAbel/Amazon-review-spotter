@@ -1,11 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { AnalysisResult } from "@/types/review";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { secureStorage } from "@/lib/secureStorage";
@@ -32,7 +30,6 @@ interface AnalysisDisplayProps {
 }
 
 export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
@@ -138,8 +135,6 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   };
 
   const handleSaveProduct = async () => {
-    if (!user) return;
-    
     setSaving(true);
     try {
       // Save product to local storage for now

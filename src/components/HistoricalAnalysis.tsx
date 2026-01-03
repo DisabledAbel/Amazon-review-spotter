@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,7 +33,6 @@ interface TimelineData {
 }
 
 export const HistoricalAnalysis = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [historicalData, setHistoricalData] = useState<HistoricalData[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
@@ -44,10 +41,8 @@ export const HistoricalAnalysis = () => {
   const [products, setProducts] = useState<{ url: string; title: string; count: number }[]>([]);
 
   useEffect(() => {
-    if (user) {
-      fetchHistoricalData();
-    }
-  }, [user]);
+    fetchHistoricalData();
+  }, []);
 
   useEffect(() => {
     if (selectedProduct && historicalData.length > 0) {
@@ -150,16 +145,6 @@ export const HistoricalAnalysis = () => {
     }
     return null;
   };
-
-  if (!user) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <p className="text-center text-muted-foreground">Please log in to view historical analysis</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-6">

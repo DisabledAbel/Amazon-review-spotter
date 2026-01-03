@@ -14,13 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      scraped_products_cache: {
+        Row: {
+          analysis: Json | null
+          asin: string
+          created_at: string
+          expires_at: string
+          id: string
+          product_images: Json | null
+          product_title: string | null
+          product_videos: Json | null
+          reviews: Json | null
+          scraped_at: string
+          total_reviews: number | null
+        }
+        Insert: {
+          analysis?: Json | null
+          asin: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          product_images?: Json | null
+          product_title?: string | null
+          product_videos?: Json | null
+          reviews?: Json | null
+          scraped_at?: string
+          total_reviews?: number | null
+        }
+        Update: {
+          analysis?: Json | null
+          asin?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          product_images?: Json | null
+          product_title?: string | null
+          product_videos?: Json | null
+          reviews?: Json | null
+          scraped_at?: string
+          total_reviews?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_cache: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
