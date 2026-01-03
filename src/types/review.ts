@@ -6,7 +6,6 @@ export interface ReviewData {
 export interface ProductInfo {
   title: string;
   image: string;
-  images: string[];
   link: string;
   asin: string;
 }
@@ -53,12 +52,8 @@ export interface AnalysisResult {
       verified: boolean;
       authenticityScore: number;
       suspiciousPatterns: string[];
-      images?: string[];
     }[];
     onlineVideos?: OnlineVideo[];
     productVideos?: ProductVideo[];
-    reviewImages?: string[];
-    aiProductSummary?: string;
-    isBlocked?: boolean;
   };
 }

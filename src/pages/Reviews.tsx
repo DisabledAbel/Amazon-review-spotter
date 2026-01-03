@@ -1,34 +1,23 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { ReviewInput } from "@/components/ReviewInput";
 import { AnalysisDisplay } from "@/components/AnalysisDisplay";
-import { AnalysisSkeleton } from "@/components/AnalysisSkeleton";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
 import { ReviewTips } from "@/components/ReviewTips";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { ProductVideos } from "@/components/ProductVideos";
-import { PullToRefresh } from "@/components/PullToRefresh";
 import { analyzeReview } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
-import { Shield, Search, AlertTriangle, Video, Loader2 } from "lucide-react";
+import { Shield, Search, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { analytics } from "@/lib/analytics";
 
 const Reviews = () => {
-  const { user, loading, isGuest } = useAuth();
+const { user, loading, isGuest } = useAuth();
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [activeTab, setActiveTab] = useState("analysis");
   const { toast } = useToast();
 
-  // Track page view
-  useEffect(() => {
-    analytics.pageView('reviews');
-  }, []);
-
-  // Listen for product analysis requests
+  // Listen for product analysis requests from YouTube search
   useEffect(() => {
     const handleAnalyzeProduct = (event: CustomEvent) => {
       const { url } = event.detail;
@@ -50,17 +39,57 @@ const Reviews = () => {
       }
     };
 
+    const handleShowYouTubeSearch = (event: CustomEvent) => {
+      console.log("showYouTubeSearch event received:", event.detail);
+      const { productTitle } = event.detail;
+      if (productTitle) {
+        // Scroll to YouTube search widget and trigger search
+        const youtubeWidget = document.querySelector('[data-component="youtube-search"]');
+        console.log("YouTube widget found:", youtubeWidget);
+        if (youtubeWidget) {
+          youtubeWidget.scrollIntoView({ behavior: 'smooth' });
+          
+          // Trigger search with product title
+          const searchInput = youtubeWidget.querySelector('input[placeholder*="Search for product videos"]') as HTMLInputElement;
+          const searchButton = Array.from(youtubeWidget.querySelectorAll('button')).find(btn => 
+            btn.textContent?.includes('Search') || btn.innerHTML.includes('search')
+          ) as HTMLButtonElement;
+          
+          console.log("Search input found:", searchInput);
+          console.log("Search button found:", searchButton);
+          
+          if (searchInput && searchButton) {
+            searchInput.value = `${productTitle} review`;
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+            console.log("Setting search value to:", `${productTitle} review`);
+            setTimeout(() => {
+              console.log("Clicking search button");
+              searchButton.click();
+            }, 100);
+          }
+        }
+      }
+    };
+
     window.addEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
+    window.addEventListener('showYouTubeSearch', handleShowYouTubeSearch as EventListener);
     
     return () => {
       window.removeEventListener('analyzeProduct', handleAnalyzeProduct as EventListener);
+      window.removeEventListener('showYouTubeSearch', handleShowYouTubeSearch as EventListener);
     };
   }, []);
 
   const handleAnalyze = async (reviewData: ReviewData) => {
-    // No authentication required for basic analysis
-    const asin = reviewData.productLink?.match(/\/dp\/([A-Z0-9]+)/i)?.[1] || 'unknown';
-    analytics.analysisStarted(asin);
+// Validate authentication before analysis
+if (!user && !isGuest) {
+  toast({
+    title: "Authentication Required",
+    description: "Please log in to analyze product reviews.",
+    variant: "destructive"
+  });
+  return;
+}
 
     setIsAnalyzing(true);
     
@@ -68,36 +97,18 @@ const Reviews = () => {
       const result = await analyzeReview(reviewData);
       setAnalysisResult(result);
       
-      // Track successful analysis
-      analytics.analysisCompleted(
-        result.productInfo.asin || asin,
-        result.genuinenessScore
-      );
-      
-      // Switch to analysis tab to show results
-      setActiveTab("analysis");
-      
-      // Dispatch event to inform chatbot about the analyzed product
+      // Dispatch event to trigger chatbot YouTube video search
       const productAnalyzedEvent = new CustomEvent('productAnalyzed', {
         detail: { productTitle: result.productInfo.title }
       });
       window.dispatchEvent(productAnalyzedEvent);
     } catch (error) {
       console.error('Analysis failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      // Track error
-      analytics.analysisError(asin, errorMessage);
       
       // Enhanced error handling with user-friendly messages
-      if (errorMessage.includes('AMAZON_BLOCKED')) {
-        toast({
-          title: "⚠️ Amazon Bot Protection Active",
-          description: "Amazon blocked scraping. Wait 5-10 minutes and try the Refresh Data button. Check Videos tab for alternatives.",
-          variant: "default",
-          duration: 8000,
-        });
-      } else if (errorMessage.includes('Authentication required') || errorMessage.includes('401')) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      if (errorMessage.includes('Authentication required') || errorMessage.includes('401')) {
         toast({
           title: "Authentication Error",
           description: "Please log in again to continue.",
@@ -127,49 +138,42 @@ const Reviews = () => {
     }
   };
 
-  const handleRefresh = async (productUrl: string) => {
-    setIsAnalyzing(true);
-    try {
-      const result = await analyzeReview({ productLink: productUrl });
-      setAnalysisResult(result);
-      setActiveTab("analysis");
-      
-      toast({
-        title: "Analysis Refreshed",
-        description: "Successfully refreshed with latest data",
-      });
-    } catch (error) {
-      console.error('Refresh failed:', error);
-      toast({
-        title: "Refresh Failed",
-        description: "Unable to refresh analysis. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const handleReset = () => {
     setAnalysisResult(null);
   };
 
-  const handlePullToRefresh = useCallback(async () => {
-    if (analysisResult?.productInfo?.asin) {
-      const productUrl = `https://www.amazon.com/dp/${analysisResult.productInfo.asin}`;
-      await handleRefresh(productUrl);
-    }
-  }, [analysisResult]);
-
-  // Show minimal loading only while checking auth
   if (loading) {
-    return null; // Don't block the UI while auth loads
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="p-3 bg-primary rounded-2xl shadow-lg w-fit mx-auto">
+            <Shield className="h-8 w-8 text-primary-foreground animate-pulse" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
+if (!user && !isGuest) {
   return (
-    <PullToRefresh onRefresh={handlePullToRefresh} className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center space-y-4 max-w-md mx-auto p-6">
+        <div className="p-3 bg-primary rounded-2xl shadow-lg w-fit mx-auto">
+          <Shield className="h-8 w-8 text-primary-foreground" />
+        </div>
+        <h1 className="text-2xl font-bold">Authentication Required</h1>
+        <p className="text-muted-foreground">Please log in to access the review analysis features.</p>
+      </div>
+    </div>
+  );
+}
+
+  return (
+    <div className="min-h-screen bg-background">
       <ThemeToggle />
       <AppSidebar />
+      <ChatBot />
       
       {/* Header */}
       <div className="bg-card border-b shadow-sm">
@@ -186,90 +190,35 @@ const Reviews = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content Area */}
-          <div className="lg:col-span-2">
-            {isAnalyzing ? (
-              <div className="space-y-6">
-                <div className="bg-card rounded-xl p-6 shadow-sm border">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary/10 rounded-lg">
-                      <Loader2 className="h-6 w-6 text-primary animate-spin" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-foreground">Analyzing Product Reviews...</h2>
-                      <p className="text-muted-foreground">
-                        Scraping reviews, detecting patterns, and generating AI insights. This may take a moment.
-                      </p>
-                    </div>
-                  </div>
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {!analysisResult ? (
+          <div className="space-y-8">
+            {/* Introduction */}
+            <div className="bg-card rounded-xl p-6 shadow-sm border max-w-4xl mx-auto">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                  <Search className="h-5 w-5 text-primary" />
                 </div>
-                <AnalysisSkeleton />
-              </div>
-            ) : !analysisResult ? (
-              <div className="space-y-8">
-                {/* Introduction */}
-                <div className="bg-card rounded-xl p-6 shadow-sm border">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                      <Search className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-semibold text-foreground mb-2">How it works</h2>
-                      <p className="text-muted-foreground leading-relaxed">
-                        Simply paste an Amazon product link below and our AI will analyze all the reviews 
-                        for that product to detect fake, paid, or manipulated reviews. We examine review patterns, 
-                        timing, language, and reviewer behavior to give you an authenticity assessment.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <ReviewTips />
-
                 <div>
-                  <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+                  <h2 className="text-lg font-semibold text-foreground mb-2">How it works</h2>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Simply paste an Amazon product link below and our AI will analyze all the reviews 
+                    for that product to detect fake, paid, or manipulated reviews. We examine review patterns, 
+                    timing, language, and reviewer behavior to give you an authenticity assessment.
+                  </p>
                 </div>
               </div>
-            ) : (
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="analysis" className="flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Analysis
-                  </TabsTrigger>
-                  <TabsTrigger value="videos" className="flex items-center gap-2">
-                    <Video className="h-4 w-4" />
-                    Videos
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="analysis">
-                  <AnalysisDisplay 
-                    result={analysisResult} 
-                    onReset={handleReset}
-                    onRefresh={handleRefresh}
-                  />
-                </TabsContent>
-                
-                <TabsContent value="videos">
-                  <ProductVideos 
-                    videos={analysisResult.realAnalysis?.productVideos}
-                    onlineVideos={analysisResult.realAnalysis?.onlineVideos}
-                  />
-                </TabsContent>
-              </Tabs>
-            )}
-          </div>
+            </div>
 
-          {/* AI Assistant Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6">
-              <ChatBot inline />
+            <ReviewTips />
+
+            <div className="max-w-2xl mx-auto">
+              <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
             </div>
           </div>
-        </div>
+        ) : (
+          <AnalysisDisplay result={analysisResult} onReset={handleReset} />
+        )}
 
         {/* Footer */}
         <div className="mt-12 text-center">
@@ -279,7 +228,7 @@ const Reviews = () => {
           </div>
         </div>
       </div>
-    </PullToRefresh>
+    </div>
   );
 };
 

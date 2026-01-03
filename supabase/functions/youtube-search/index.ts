@@ -1,7 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const tavilyApiKey = Deno.env.get('TAVILY_API_KEY');
+const youtubeApiKey = Deno.env.get('YOUTUBE_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,6 +39,29 @@ function extractAmazonLinks(text: string): string[] {
   return [...new Set(matches)]; // Remove duplicates
 }
 
+async function fetchAmazonLinksFromComments(videoId: string, apiKey: string): Promise<string[]> {
+  try {
+    const commentsUrl = `https://www.googleapis.com/youtube/v3/commentThreads?part=snippet&videoId=${videoId}&maxResults=50&order=relevance&key=${apiKey}`;
+    const response = await fetch(commentsUrl);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('YouTube API comments error:', errorData);
+      return [];
+    }
+
+    const data = await response.json();
+    const texts: string[] = (data.items || []).map((item: any) =>
+      item.snippet?.topLevelComment?.snippet?.textDisplay || ''
+    );
+
+    const links = texts.flatMap((t) => extractAmazonLinks(t));
+    return [...new Set(links)];
+  } catch (err) {
+    console.error('Failed fetching comments for video:', videoId, err);
+    return [];
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -47,73 +70,78 @@ serve(async (req) => {
   }
 
   try {
-    if (!tavilyApiKey) {
-      throw new Error('Tavily API key not configured');
+    if (!youtubeApiKey) {
+      throw new Error('YouTube API key not configured');
     }
 
-    const { query, maxResults = 10 }: YouTubeSearchParams = await req.json();
+    const { query, maxResults = 10, order = 'relevance' }: YouTubeSearchParams = await req.json();
 
     if (!query) {
       throw new Error('Search query is required');
     }
 
-    console.log(`Searching YouTube via Tavily for: ${query}`);
+    console.log(`Searching YouTube for: ${query}`);
 
-    // Use Tavily API to search for YouTube videos
-    const tavilyResponse = await fetch('https://api.tavily.com/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        api_key: tavilyApiKey,
-        query: query,
-        search_depth: 'basic',
-        include_domains: ['youtube.com'],
-        max_results: maxResults,
-        include_raw_content: false,
-      }),
-    });
-
-    if (!tavilyResponse.ok) {
-      const errorData = await tavilyResponse.json().catch(() => ({}));
-      console.error('Tavily API error:', errorData);
-      throw new Error(`Tavily API error: ${errorData.error || 'Unknown error'}`);
+    // Search for videos
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=id,snippet&type=video&q=${encodeURIComponent(query)}&maxResults=${maxResults}&order=${order}&key=${youtubeApiKey}`;
+    
+    const searchResponse = await fetch(searchUrl);
+    
+    if (!searchResponse.ok) {
+      const errorData = await searchResponse.json();
+      console.error('YouTube API search error:', errorData);
+      throw new Error(`YouTube API error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
-    const tavilyData = await tavilyResponse.json();
-    console.log(`Tavily found ${tavilyData.results?.length || 0} results`);
+    const searchData = await searchResponse.json();
 
-    // Process Tavily results and extract YouTube video information
-    const videos: VideoItem[] = (tavilyData.results || [])
-      .filter((result: any) => result.url?.includes('youtube.com/watch'))
-      .map((result: any) => {
-        // Extract video ID from URL
-        const urlMatch = result.url.match(/[?&]v=([^&]+)/);
-        const videoId = urlMatch ? urlMatch[1] : '';
+    // Get video details for each result
+    const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
+    const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoIds}&key=${youtubeApiKey}`;
+    
+    const detailsResponse = await fetch(detailsUrl);
+    
+    if (!detailsResponse.ok) {
+      const errorData = await detailsResponse.json();
+      console.error('YouTube API details error:', errorData);
+      throw new Error(`YouTube API error: ${errorData.error?.message || 'Unknown error'}`);
+    }
 
-        // Extract Amazon links from content
-        const amazonLinks = extractAmazonLinks(`${result.title} ${result.content || ''}`);
+    const detailsData = await detailsResponse.json();
+
+    // Process videos and extract Amazon links (including from comments)
+    const videos: VideoItem[] = await Promise.all(
+      detailsData.items.map(async (item: any) => {
+        const fullDescription = item.snippet.description || '';
+        const title = item.snippet.title || '';
+
+        // Extract links from title + description
+        const descLinks = extractAmazonLinks(`${title} ${fullDescription}`);
+
+        // Extract links from top comments
+        const commentLinks = await fetchAmazonLinksFromComments(item.id, youtubeApiKey);
+
+        const allLinks = [...new Set([...(descLinks || []), ...(commentLinks || [])])];
 
         return {
-          id: videoId,
-          title: result.title || '',
-          description: result.content?.substring(0, 500) + (result.content?.length > 500 ? '...' : '') || '',
-          thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-          channelTitle: result.url?.split('/')[3] || '',
-          publishedAt: result.published_date || new Date().toISOString(),
-          url: result.url,
-          amazonLinks: amazonLinks,
+          id: item.id,
+          title: title,
+          description: fullDescription.substring(0, 500) + (fullDescription.length > 500 ? '...' : ''),
+          thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
+          channelTitle: item.snippet.channelTitle || '',
+          publishedAt: item.snippet.publishedAt || '',
+          url: `https://www.youtube.com/watch?v=${item.id}`,
+          amazonLinks: allLinks,
         };
       })
-      .filter((video: VideoItem) => video.id); // Only keep videos with valid IDs
+    );
 
     const totalAmazonLinks = videos.reduce((acc, v) => acc + (v.amazonLinks?.length || 0), 0);
-    console.log(`Processed ${videos.length} videos, ${totalAmazonLinks} Amazon links total`);
+    console.log(`Found ${videos.length} videos, ${totalAmazonLinks} Amazon links total (including comments)`);
 
     return new Response(JSON.stringify({ 
       videos,
-      totalResults: videos.length
+      totalResults: searchData.pageInfo?.totalResults || 0
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -10,8 +10,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { secureStorage } from "@/lib/secureStorage";
 import { AIAssistant } from "@/components/AIAssistant";
-import { ProductMediaGallery } from "@/components/ProductMediaGallery";
-import { ProductVideos } from "@/components/ProductVideos";
 import { 
   Brain, 
   AlertTriangle, 
@@ -24,24 +22,25 @@ import {
   Bookmark,
   BookmarkCheck,
   Loader2,
-  Sparkles,
-  RefreshCw
+  Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface AnalysisDisplayProps {
   result: AnalysisResult;
   onReset: () => void;
-  onRefresh: (productUrl: string) => Promise<void>;
 }
 
-export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayProps) => {
+export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [youtubeVideos, setYoutubeVideos] = useState<any[]>([]);
+  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [aiSummary, setAiSummary] = useState<string>("");
+  const [loadingSummary, setLoadingSummary] = useState(false);
 
   // Store product context for chatbot using secure storage
   useEffect(() => {
@@ -56,40 +55,67 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
     }
   }, [result]);
 
-  // YouTube video search disabled per user request
-  // useEffect(() => {
-  //   const findVideos = async () => {
-  //     if (!result?.productInfo?.title) return;
-  //     
-  //     setLoadingVideos(true);
-  //     try {
-  //       const { data, error } = await supabase.functions.invoke('gemini-video-finder', {
-  //         body: {
-  //           productTitle: result.productInfo.title,
-  //           productAsin: result.productInfo.asin
-  //         }
-  //       });
+  // Automatically find YouTube videos when product is analyzed
+  useEffect(() => {
+    const findVideos = async () => {
+      if (!result?.productInfo?.title) return;
+      
+      setLoadingVideos(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('gemini-video-finder', {
+          body: {
+            productTitle: result.productInfo.title,
+            productAsin: result.productInfo.asin
+          }
+        });
 
-  //       if (error) throw error;
-  //       
-  //       if (data?.videos && data.videos.length > 0) {
-  //         setYoutubeVideos(data.videos);
-  //         toast({
-  //           title: "Videos Found!",
-  //           description: `Found ${data.videos.length} relevant YouTube reviews for this product`
-  //         });
-  //       }
-  //     } catch (error) {
-  //       console.error('Error finding videos:', error);
-  //     } finally {
-  //       setLoadingVideos(false);
-  //     }
-  //   };
+        if (error) throw error;
+        
+        if (data?.videos && data.videos.length > 0) {
+          setYoutubeVideos(data.videos);
+          toast({
+            title: "Videos Found!",
+            description: `Found ${data.videos.length} relevant YouTube reviews for this product`
+          });
+        }
+      } catch (error) {
+        console.error('Error finding videos:', error);
+      } finally {
+        setLoadingVideos(false);
+      }
+    };
 
-  //   findVideos();
-  // }, [result, toast]);
+    findVideos();
+  }, [result, toast]);
 
-  // Generate AI summary of reviews - Removed as AI summary now comes from edge function cache
+  // Generate AI summary of reviews
+  useEffect(() => {
+    const generateSummary = async () => {
+      if (!result?.realAnalysis?.individualReviews || result.realAnalysis.individualReviews.length === 0) return;
+      
+      setLoadingSummary(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('analyze-reviews-ai', {
+          body: {
+            reviews: result.realAnalysis.individualReviews,
+            productTitle: result.productInfo.title
+          }
+        });
+
+        if (error) throw error;
+        
+        if (data?.success && data.analysis) {
+          setAiSummary(data.analysis);
+        }
+      } catch (error) {
+        console.error('Error generating AI summary:', error);
+      } finally {
+        setLoadingSummary(false);
+      }
+    };
+
+    generateSummary();
+  }, [result]);
 
   const getScoreColor = (score: number) => {
     if (score >= 8) return "text-green-600";
@@ -153,40 +179,6 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
     }
   };
 
-  const handleRefreshCache = async () => {
-    setRefreshing(true);
-    
-    try {
-      // Delete the cache entry for this product
-      const { error: deleteError } = await supabase
-        .from('scraped_products_cache')
-        .delete()
-        .eq('asin', result.productInfo.asin);
-
-      if (deleteError) {
-        console.error('Error deleting cache:', deleteError);
-        throw new Error('Failed to clear cache');
-      }
-
-      toast({
-        title: "Cache Cleared",
-        description: "Refreshing analysis with latest data...",
-      });
-
-      // Trigger re-analysis
-      await onRefresh(result.productInfo.link);
-      
-    } catch (error) {
-      console.error('Error refreshing cache:', error);
-      toast({
-        title: "Refresh Failed",
-        description: error instanceof Error ? error.message : "Failed to refresh analysis",
-        variant: "destructive"
-      });
-      setRefreshing(false);
-    }
-  };
-
   return (
     <div className="max-w-7xl mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -200,26 +192,14 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
             </Button>
             <div className="flex items-center gap-4">
               <Button 
-                onClick={handleRefreshCache}
-                disabled={refreshing}
-                variant="outline"
+                onClick={handleSaveProduct}
+                disabled={saving || isSaved}
+                variant={isSaved ? "outline" : "default"}
                 className="flex items-center gap-2"
-                title="Clear cache and fetch fresh data"
               >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? "Refreshing..." : "Refresh Data"}
+                {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                {saving ? "Saving..." : isSaved ? "Saved" : "Save Product"}
               </Button>
-              {user && (
-                <Button 
-                  onClick={handleSaveProduct}
-                  disabled={saving || isSaved}
-                  variant={isSaved ? "outline" : "default"}
-                  className="flex items-center gap-2"
-                >
-                  {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
-                  {saving ? "Saving..." : isSaved ? "Saved" : "Save Product"}
-                </Button>
-              )}
               <div className="flex items-center gap-2">
                 <Shield className="h-5 w-5 text-primary" />
                 <span className="font-semibold text-foreground">Analysis Complete</span>
@@ -228,95 +208,44 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
           </div>
 
           {/* Genuineness Score */}
-          {result.realAnalysis?.isBlocked ? (
-            <Card className="border-orange-300 bg-orange-50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-orange-800">
-                  <AlertTriangle className="h-5 w-5" />
-                  Amazon Bot Protection Detected
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-white rounded-lg border border-orange-200">
-                  <p className="text-sm text-slate-700 leading-relaxed">
-                    {result.verdictExplanation}
-                  </p>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Brain className="h-5 w-5" />
+                Overall Review Authenticity Score
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Progress value={result.realAnalysis?.authenticityPercentage || result.genuinenessScore * 10} className="h-3" />
                 </div>
-                
-                <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <Sparkles className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-blue-900 text-sm">Good News!</p>
-                    <p className="text-sm text-blue-700">
-                      {result.realAnalysis.onlineVideos && result.realAnalysis.onlineVideos.length > 0 
-                        ? `We found ${result.realAnalysis.onlineVideos.length} YouTube video reviews for you. Check the Videos tab above!`
-                        : "You can still read reviews directly on Amazon or try the Videos tab for YouTube reviews."}
-                    </p>
+                <div className={`text-2xl font-bold ${getScoreColor(result.genuinenessScore)}`}>
+                  {result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10)}%
+                </div>
+              </div>
+              <p className="mt-2 text-slate-600">{result.scoreExplanation}</p>
+              
+              {result.realAnalysis && (
+                <div className="mt-4 grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.totalReviews}</div>
+                    <div className="text-sm text-blue-600">Total Reviews</div>
                   </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Button 
-                    onClick={() => window.open(result.productInfo.link, '_blank')}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    View on Amazon
-                  </Button>
-                  <Button 
-                    onClick={handleRefreshCache}
-                    disabled={refreshing}
-                    size="sm"
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    Try Again
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  Overall Review Authenticity Score
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <Progress value={result.realAnalysis?.authenticityPercentage || result.genuinenessScore * 10} className="h-3" />
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.verificationRate}%</div>
+                    <div className="text-sm text-blue-600">Verified Purchases</div>
                   </div>
-                  <div className={`text-2xl font-bold ${getScoreColor(result.genuinenessScore)}`}>
-                    {result.realAnalysis?.authenticityPercentage || Math.round(result.genuinenessScore * 10)}%
-                  </div>
-                </div>
-                <p className="mt-2 text-slate-600">{result.scoreExplanation}</p>
-                
-                {result.realAnalysis && !result.realAnalysis.isBlocked && (
-                  <div className="mt-4 grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.totalReviews}</div>
-                      <div className="text-sm text-blue-600">Total Reviews</div>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-blue-800">
+                      {Object.values(result.realAnalysis.ratingDistribution).reduce((a, b) => a + b, 0)}
                     </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-blue-800">{result.realAnalysis.verificationRate}%</div>
-                      <div className="text-sm text-blue-600">Verified Purchases</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-blue-800">
-                        {Object.values(result.realAnalysis.ratingDistribution).reduce((a, b) => a + b, 0)}
-                      </div>
-                      <div className="text-sm text-blue-600">Analyzed Reviews</div>
-                    </div>
+                    <div className="text-sm text-blue-600">Analyzed Reviews</div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Weird/Suspicious Reviews - Enhanced */}
           <Card className={result.redFlags.length > 0 ? "border-red-200 bg-red-50/30" : "border-green-200 bg-green-50/30"}>
@@ -358,45 +287,200 @@ export const AnalysisDisplay = ({ result, onReset, onRefresh }: AnalysisDisplayP
             </CardContent>
           </Card>
 
-          {/* AI-Powered Product Summary */}
-          {result.realAnalysis?.aiProductSummary && (
+          {/* AI-Powered Review Summary */}
+          {result.realAnalysis?.individualReviews && (
             <Card className="border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-blue-600" />
-                  🤖 AI Product Summary
+                  🤖 AI Review Insights
                   <Badge variant="outline" className="ml-2 bg-blue-100 text-blue-700 border-blue-300">
-                    Powered by Gemini
+                    Powered by OpenRouter
                   </Badge>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground mt-2">
-                  AI-generated comprehensive summary based on all customer reviews
+                  AI-generated comprehensive analysis of all reviews
                 </p>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none">
-                  <div className="p-4 bg-white border border-blue-200 rounded-lg whitespace-pre-wrap leading-relaxed">
-                    {result.realAnalysis.aiProductSummary}
+                {loadingSummary ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                    <span className="ml-2 text-muted-foreground">Analyzing reviews with AI...</span>
                   </div>
-                </div>
+                ) : aiSummary ? (
+                  <div className="prose prose-sm max-w-none">
+                    <div className="p-4 bg-white border border-blue-200 rounded-lg whitespace-pre-wrap">
+                      {aiSummary}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-4">
+                    No AI summary available
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
 
-          {/* Product Media Gallery - Images from Amazon */}
-          <ProductMediaGallery 
-            images={result.productInfo.images}
-            videos={result.realAnalysis?.productVideos}
-            productTitle={result.productInfo.title}
-          />
+          {/* YouTube Videos Section - Auto-discovered by AI */}
+          <Card className="border-purple-200 bg-gradient-to-br from-purple-50/50 to-blue-50/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5 text-purple-600" />
+                  🤖 AI-Discovered YouTube Reviews
+                  <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-700 border-purple-300">
+                    Powered by OpenRouter
+                  </Badge>
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Gemini AI automatically searched and ranked the most relevant YouTube reviews for this product
+                </p>
+              </CardHeader>
+              <CardContent>
+                {loadingVideos ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center space-y-3">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto text-purple-600" />
+                      <p className="text-sm text-muted-foreground">Gemini AI is searching YouTube for relevant reviews...</p>
+                    </div>
+                  </div>
+                ) : youtubeVideos.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No YouTube reviews found for this product yet.</p>
+                    <p className="text-sm text-muted-foreground mt-2">Try searching manually or check back later.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {youtubeVideos.map((video, index) => (
+                      <div key={index} className="p-4 border rounded-lg space-y-3 bg-white hover:shadow-md transition-shadow">
+                        <div className="aspect-video bg-gray-100 rounded overflow-hidden relative cursor-pointer"
+                             onClick={() => window.open(video.url, '_blank')}>
+                          <img 
+                            src={video.thumbnail} 
+                            alt={video.title}
+                            className="w-full h-full object-cover hover:opacity-90 transition-opacity"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = "/placeholder.svg";
+                            }}
+                          />
+                          <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                            {video.relevanceScore}% Match
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm mb-1 line-clamp-2">{video.title}</h4>
+                          <p className="text-xs text-muted-foreground mb-2">{video.channel}</p>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Badge variant="outline" className="text-xs">
+                              YouTube
+                            </Badge>
+                            <span className="text-xs text-green-600 font-medium">
+                              {video.relevanceScore}% relevant
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {video.aiReasoning}
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full flex items-center gap-2"
+                          onClick={() => window.open(video.url, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Watch on YouTube
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Video Reviews Section - YouTube + Amazon */}
-          {((result.realAnalysis?.onlineVideos && result.realAnalysis.onlineVideos.length > 0) || 
-            (result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0)) && (
-            <ProductVideos 
-              videos={result.realAnalysis?.productVideos}
-              onlineVideos={result.realAnalysis?.onlineVideos}
-            />
+          {/* Review Videos Section */}
+          {result.realAnalysis?.productVideos && result.realAnalysis.productVideos.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5" />
+                  Customer Review Videos from Amazon
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {result.realAnalysis.productVideos.map((video, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-3">
+                      <div className="aspect-video bg-gray-100 rounded overflow-hidden relative">
+                        <img 
+                          src={video.thumbnail} 
+                          alt={video.title}
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => {
+                            if (video.m3u8Url) {
+                              window.open(video.m3u8Url, '_blank');
+                            } else if (video.url !== '#') {
+                              window.open(video.url, '_blank');
+                            }
+                          }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "/placeholder.svg";
+                          }}
+                        />
+                        {video.duration && (
+                          <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            {video.duration}
+                          </div>
+                        )}
+                        {video.m3u8Url && (
+                          <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                            HLS Stream
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm mb-1">{video.title}</h4>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            Customer Review Video
+                          </Badge>
+                          {video.views && (
+                            <span className="text-xs text-muted-foreground">{video.views}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {video.m3u8Url && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            className="w-full flex items-center gap-2"
+                            onClick={() => window.open(video.m3u8Url, '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Play Stream (M3U8)
+                          </Button>
+                        )}
+                        {video.url !== '#' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full flex items-center gap-2"
+                            onClick={() => window.open(video.url, '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            View on Amazon
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
 
 

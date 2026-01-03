@@ -1,23 +1,19 @@
+
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { LandingPage } from "@/components/LandingPage";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ChatBot } from "@/components/ChatBot";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { PWAPrompt } from "@/components/PWAPrompt";
 import { InstallationGuide } from "@/components/InstallationGuide";
-import { Shield, BarChart3 } from "lucide-react";
+import { Shield, Users, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { analytics } from "@/lib/analytics";
 
 const Index = () => {
   const { user, loading } = useAuth();
   const [showInstallGuide, setShowInstallGuide] = useState(false);
-
-  // Track page view
-  useEffect(() => {
-    analytics.pageView(user ? 'dashboard' : 'landing');
-  }, [user]);
 
   // Show installation guide for new users
   useEffect(() => {
@@ -57,6 +53,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <ThemeToggle />
       <AppSidebar />
+      <ChatBot />
       <PWAPrompt />
       <InstallationGuide 
         open={showInstallGuide} 

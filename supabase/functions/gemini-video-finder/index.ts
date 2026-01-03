@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY');
 
 interface VideoResult {
   title: string;
@@ -26,21 +26,9 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication - require Authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ 
-        error: 'Authentication required',
-        success: false 
-      }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ 
-        error: 'Missing LOVABLE_API_KEY' 
+        error: 'Missing OPENROUTER_API_KEY' 
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -60,7 +48,7 @@ serve(async (req) => {
 
     console.log('Finding videos for product:', productTitle);
 
-    // Step 1: Generate intelligent search queries using Lovable AI
+    // Step 1: Generate intelligent search queries using OpenRouter
     const searchQueries = await generateSearchQueries(productTitle, productAsin);
     console.log('Generated search queries:', searchQueries);
 
@@ -71,20 +59,14 @@ serve(async (req) => {
       allVideos.push(...videos);
     }
 
-    // Step 3: Use Lovable AI to analyze and rank videos for relevance
+    // Step 3: Use OpenRouter to analyze and rank videos for relevance
     const rankedVideos = await analyzeVideoRelevance(productTitle, productAsin, allVideos);
-
-    // Filter to only include videos with relevance score >= 60 (likely about this product)
-    const relevantVideos = rankedVideos.filter(v => v.relevanceScore >= 60);
-
-    console.log(`Filtered to ${relevantVideos.length} relevant videos (score >= 60) out of ${rankedVideos.length} total`);
 
     return new Response(JSON.stringify({
       success: true,
-      videos: relevantVideos.slice(0, 8), // Return top 8 most relevant videos
+      videos: rankedVideos.slice(0, 8), // Return top 8 most relevant videos
       searchQueries: searchQueries,
-      totalFound: allVideos.length,
-      filteredCount: relevantVideos.length
+      totalFound: allVideos.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -101,48 +83,48 @@ serve(async (req) => {
 });
 
 async function generateSearchQueries(productTitle: string, productAsin?: string): Promise<string[]> {
-  const prompt = `Generate 5 HIGHLY SPECIFIC YouTube search queries to find videos ONLY about this exact product: "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}
-
-  CRITICAL: The queries MUST be specific to THIS EXACT product, not generic product categories.
+  const prompt = `Generate 5 optimized YouTube search queries to find the most relevant product review and demonstration videos for this product: "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}
 
   The queries should target:
-  1. Detailed reviews and unboxings of THIS SPECIFIC product
-  2. Comparison videos featuring THIS product
-  3. Tutorial/how-to videos for THIS product
-  4. Real user experiences with THIS product
-  5. Expert analysis of THIS product
+  1. Detailed reviews and unboxings
+  2. Comparison videos 
+  3. Tutorial/how-to videos
+  4. Real user experiences
+  5. Expert analysis
 
   Guidelines:
-  - ALWAYS include the EXACT product name/model in each query
-  - Include ASIN (${productAsin}) in at least 2 queries if available
-  - Add specific brand names, model numbers, and unique identifiers
-  - Include keywords: "review", "unboxing", "vs", "tutorial", "test"
-  - Make queries as specific as possible to avoid generic/category videos
-  - Avoid generic terms like "best headphones" - focus on THIS product
+  - Use the exact product name when possible
+  - Include relevant keywords like "review", "unboxing", "vs", "tutorial", "test"
+  - Consider brand name, model numbers, and key features
+  - Make queries specific enough to avoid generic results
+  - Include variations in terminology that users might search for
 
   Return ONLY a JSON array of 5 strings, no explanation:`;
 
   const response = await fetch(
-    'https://ai.gateway.lovable.dev/v1/chat/completions',
+    'https://openrouter.ai/api/v1/chat/completions',
     {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://reviewdetective.app',
+        'X-Title': 'Review Detective'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-oss-20b:free',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        max_completion_tokens: 512
+        temperature: 0.3,
+        max_tokens: 512
       })
     }
   );
 
   if (!response.ok) {
-    throw new Error('Failed to generate search queries with Lovable AI');
+    throw new Error('Failed to generate search queries with OpenRouter');
   }
 
   const data = await response.json();
@@ -162,40 +144,88 @@ async function generateSearchQueries(productTitle: string, productAsin?: string)
 
 async function searchYouTubeVideos(query: string) {
   try {
-    console.log(`Searching YouTube API for: ${query}`);
-    
-    // Call the youtube-search edge function that uses the real YouTube API
-    const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/youtube-search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
-      },
-      body: JSON.stringify({
-        query,
-        maxResults: 5
-      })
-    });
+    // Use OpenRouter with web search to find YouTube videos
+    const prompt = `Search YouTube for: "${query}"
+
+Find 5-8 real YouTube videos using Google Search.
+
+For EACH video, return this EXACT format (keep descriptions under 100 characters):
+{
+  "id": "VIDEO_ID",
+  "title": "Video Title",
+  "channel": "Channel Name",
+  "description": "Short description max 100 chars",
+  "thumbnail": "https://i.ytimg.com/vi/VIDEO_ID/mqdefault.jpg",
+  "url": "https://www.youtube.com/watch?v=VIDEO_ID"
+}
+
+CRITICAL RULES:
+1. Keep descriptions SHORT (under 100 characters)
+2. Escape all quotes in strings with backslash
+3. Return valid JSON array only
+4. Use exact YouTube URLs you find`;
+
+    console.log(`Searching for: ${query}`);
+
+    const response = await fetch(
+      'https://openrouter.ai/api/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://reviewdetective.app',
+          'X-Title': 'Review Detective'
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-oss-20b:free',
+          messages: [{
+            role: 'user',
+            content: prompt
+          }],
+          temperature: 0.2,
+          max_tokens: 2048
+        })
+      }
+    );
 
     if (!response.ok) {
-      console.error('YouTube search failed:', response.status);
+      const errorText = await response.text();
+      console.error('OpenRouter search error:', errorText);
       return [];
     }
 
     const data = await response.json();
-    const videos = data.videos || [];
+    const text = data?.choices?.[0]?.message?.content || '[]';
     
-    console.log(`Found ${videos.length} videos for query: ${query}`);
+    // Clean up the text before parsing - remove markdown code blocks and truncated content
+    let cleanText = text.trim()
+      .replace(/^```json?\s*/i, '')  // Remove opening code fence
+      .replace(/\s*```$/i, '');      // Remove closing code fence
     
-    // Transform to expected format
-    return videos.map((v: any) => ({
-      id: v.id,
-      title: v.title,
-      channel: v.channelTitle,
-      description: v.description,
-      thumbnail: v.thumbnail,
-      url: v.url
-    }));
+    // If text seems incomplete, try to fix it
+    if (!cleanText.endsWith(']')) {
+      console.log('JSON appears incomplete, attempting to fix...');
+      // Find the last complete object
+      const lastCompleteObj = cleanText.lastIndexOf('}');
+      if (lastCompleteObj > 0) {
+        cleanText = cleanText.substring(0, lastCompleteObj + 1) + ']';
+      }
+    }
+    
+    try {
+      const videos = JSON.parse(cleanText);
+      console.log(`Found ${videos.length} videos for query: ${query}`);
+      
+      // Ensure all videos have required fields
+      const validVideos = videos.filter((v: any) => v.id && v.title && v.url);
+      return Array.isArray(validVideos) ? validVideos : [];
+    } catch (parseError) {
+      console.error('Failed to parse video results:', parseError);
+      console.error('Raw text length:', text.length);
+      console.error('First 500 chars:', text.substring(0, 500));
+      return [];
+    }
   } catch (error) {
     console.error('YouTube search error:', error);
     return [];
@@ -205,23 +235,18 @@ async function searchYouTubeVideos(query: string) {
 async function analyzeVideoRelevance(productTitle: string, productAsin: string | undefined, videos: any[]): Promise<VideoResult[]> {
   if (videos.length === 0) return [];
 
-  const prompt = `Analyze these YouTube videos to determine if they are about THIS SPECIFIC product: "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}.
-
-  CRITICAL SCORING RULES:
-  - Score 80-100: Video is DEFINITELY about THIS EXACT product (product name/model in title, clear review/unboxing)
-  - Score 60-79: Video LIKELY about this product (similar name, matching features)
-  - Score 40-59: Video MIGHT mention this product (category match, but not focused on it)
-  - Score 0-39: Video NOT about this specific product (generic category, different product, listicle)
+  const prompt = `Analyze these YouTube videos to determine how relevant they are for the product "${productTitle}"${productAsin ? ` (ASIN: ${productAsin})` : ''}.
 
   For each video, provide:
-  1. relevanceScore (0-100): How confident you are this video is about THIS EXACT product
-  2. aiReasoning: Brief explanation with specific evidence
+  1. relevanceScore (0-100): How likely this video shows/reviews the exact product
+  2. aiReasoning: Brief explanation of the relevance score
 
-  BE STRICT - Only high scores if:
-  - Title contains exact product name/model number
-  - ASIN appears in title or description
-  - Clear review/unboxing indicators for THIS product
-  - NOT generic "best of" or category videos
+  Consider:
+  - Exact product name matches in title
+  - Review/unboxing keywords
+  - Channel credibility for product reviews
+  - Description content relevance
+  - Avoid generic listicles or unrelated content
 
   Videos to analyze:
   ${JSON.stringify(videos.slice(0, 15))} // Limit to prevent token overflow
@@ -234,26 +259,29 @@ async function analyzeVideoRelevance(productTitle: string, productAsin: string |
   }`;
 
   const response = await fetch(
-    'https://ai.gateway.lovable.dev/v1/chat/completions',
+    'https://openrouter.ai/api/v1/chat/completions',
     {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://reviewdetective.app',
+        'X-Title': 'Review Detective'
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'openai/gpt-oss-20b:free',
         messages: [{
           role: 'user',
           content: prompt
         }],
-        max_completion_tokens: 1024
+        temperature: 0.2,
+        max_tokens: 1024
       })
     }
   );
 
   if (!response.ok) {
-    console.log('Lovable AI analysis failed, using default ranking');
+    console.log('OpenRouter analysis failed, using default ranking');
     return videos.map((video, index) => ({
       title: video.title,
       url: video.url,

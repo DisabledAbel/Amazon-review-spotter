@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+const openrouterApiKey = Deno.env.get('OPENROUTER_API_KEY');
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -35,8 +35,8 @@ serve(async (req) => {
     let response: string;
     let youtubeVideos: any[] = []; // Declare in outer scope
 
-    // Check if Lovable AI is configured
-    if (lovableApiKey) {
+    // Check if OpenRouter API is configured
+    if (openrouterApiKey) {
       try {
         // Prepare system prompt and context
         const systemPrompt = `You are an AI assistant specialized in Amazon product reviews and authenticity. 
@@ -46,9 +46,6 @@ serve(async (req) => {
         - Shopping tips and advice
         - Product evaluation techniques
         - Review analysis
-        - Finding coupons and deals for products
-        
-        IMPORTANT: Whenever discussing a specific product or when users ask about reviews, ALWAYS use the search_youtube_videos tool to find relevant YouTube videos automatically. Don't wait for users to ask - proactively search for video reviews to help them make informed decisions.
         
         If asked about anything else, politely redirect the conversation back to these topics.
         Keep responses helpful, concise, and focused on review authenticity.`;
@@ -81,128 +78,52 @@ ${youtubeVideos.map((video: any, index: number) =>
           } catch (error) {
             console.error('Error fetching YouTube videos:', error);
           }
-
-          // Auto-search for coupons when product is analyzed
-          try {
-            const { data: couponData } = await supabase.functions.invoke('search-coupons', {
-              body: { 
-                productName: productContext.title,
-                productUrl: productContext.url
-              }
-            });
-            
-            if (couponData?.message) {
-              contextMessage += `\n\nCoupon availability: ${couponData.message}`;
-              if (couponData.suggestions?.length > 0) {
-                contextMessage += `\nSuggestions:\n${couponData.suggestions.map((s: string) => `- ${s}`).join('\n')}`;
-              }
-            }
-          } catch (error) {
-            console.error('Error searching for coupons:', error);
-          }
         }
 
-        // Use Lovable AI Gateway with GPT-5 and tool calling
-        const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        // Use OpenRouter API with Llama 3.2 3B Instruct
+        const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${lovableApiKey}`,
+            'Authorization': `Bearer ${openrouterApiKey}`,
             'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://reviewdetective.app',
+            'X-Title': 'Review Detective'
           },
           body: JSON.stringify({
-            model: 'openai/gpt-5-mini',
+            model: 'meta-llama/llama-3.2-3b-instruct:free',
             messages: [
               { role: 'system', content: systemPrompt + contextMessage },
               { role: 'user', content: sanitizedMessage }
             ],
-            max_completion_tokens: 1000,
-            tools: [
-              {
-                type: 'function',
-                function: {
-                  name: 'search_youtube_videos',
-                  description: 'Search for YouTube videos about a specific product, review, unboxing, or topic. Use this when users ask about videos, want to see reviews, or need visual content about a product.',
-                  parameters: {
-                    type: 'object',
-                    properties: {
-                      query: {
-                        type: 'string',
-                        description: 'The search query for YouTube videos (e.g., "iPhone 15 Pro review", "standing desk unboxing")'
-                      },
-                      maxResults: {
-                        type: 'number',
-                        description: 'Maximum number of videos to return (default: 5)',
-                        default: 5
-                      }
-                    },
-                    required: ['query']
-                  }
-                }
-              }
-            ]
+            temperature: 0.7,
+            max_tokens: 1000
           }),
         });
 
-        if (!aiResponse.ok) {
-          const errorData = await aiResponse.text();
-          console.error('Lovable AI Gateway error:', aiResponse.status, errorData);
-          
-          if (aiResponse.status === 429) {
-            throw new Error('Rate limit exceeded. Please try again later.');
-          }
-          if (aiResponse.status === 402) {
-            throw new Error('AI credits depleted. Please add credits to your workspace.');
-          }
-          throw new Error('AI Gateway error');
+        if (!openrouterResponse.ok) {
+          const errorData = await openrouterResponse.text();
+          console.error('OpenRouter API error:', errorData);
+          throw new Error('OpenRouter API error');
         }
 
-        const aiData = await aiResponse.json();
-        let assistantResponse = aiData.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
-        const toolCalls = aiData.choices?.[0]?.message?.tool_calls;
-
-        // Handle tool calls if GPT5 wants to search YouTube
-        if (toolCalls && toolCalls.length > 0) {
-          for (const toolCall of toolCalls) {
-            if (toolCall.function.name === 'search_youtube_videos') {
-              const args = JSON.parse(toolCall.function.arguments);
-              console.log('GPT5 requesting YouTube search:', args);
-              
-              try {
-                const { data: videoData } = await supabase.functions.invoke('youtube-search', {
-                  body: { 
-                    query: args.query,
-                    maxResults: args.maxResults || 5
-                  }
-                });
-
-                if (videoData?.videos && videoData.videos.length > 0) {
-                  const videos = videoData.videos.slice(0, 3);
-                  assistantResponse += `\n\n📺 Here are relevant YouTube videos:\n\n${videos.map((video: any) => 
-                    `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
-                  ).join('\n')}`;
-                }
-              } catch (error) {
-                console.error('Error fetching YouTube videos via tool call:', error);
-              }
-            }
-          }
-        }
+        const openrouterData = await openrouterResponse.json();
+        let aiResponse = openrouterData.choices?.[0]?.message?.content || "I'm sorry, I couldn't process that request.";
         
-        // Add YouTube videos to response if available from product context
+        // Add YouTube videos to response if available
         if (youtubeVideos.length > 0) {
-          assistantResponse += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
+          aiResponse += `\n\nI also found these YouTube reviews for this product:\n\n${youtubeVideos.map((video: any) => 
             `🎥 **${video.title}**\nBy ${video.channelTitle}\nWatch: ${video.url}\n`
           ).join('\n')}`;
         }
         
-        response = assistantResponse;
+        response = aiResponse;
       } catch (error) {
-        console.error('Lovable AI error:', error);
+        console.error('OpenRouter API error:', error);
         // Fallback to built-in responses
         response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
       }
     } else {
-      // Use built-in responses if Lovable AI is not configured
+      // Use built-in responses if OpenRouter is not configured
       response = generateFallbackResponse(sanitizedMessage, productContext, youtubeVideos);
     }
 
