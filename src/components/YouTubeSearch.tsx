@@ -7,7 +7,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, ExternalLink, ShoppingCart, Youtube, Calendar, User, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 
 interface VideoItem {
   id: string;
@@ -32,7 +31,6 @@ export const YouTubeSearch = () => {
   const [loading, setLoading] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const [scanning, setScanning] = useState(false);
   const [scanMap, setScanMap] = useState<Record<string, { score: number; reason: string }>>({});

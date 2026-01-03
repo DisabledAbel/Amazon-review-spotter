@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { 
-  User, 
   Bookmark, 
   Github, 
-  LogOut, 
   Menu,
   ExternalLink,
   Trash2,
@@ -32,16 +27,13 @@ interface SavedProduct {
 }
 
 export const AppSidebar = () => {
-  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchSavedProducts();
-    }
-  }, [user]);
+    fetchSavedProducts();
+  }, []);
 
   const fetchSavedProducts = async () => {
     setLoading(true);
@@ -101,29 +93,16 @@ export const AppSidebar = () => {
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Account & Saved Products
+            <Menu className="h-5 w-5" />
+            Menu & Saved Products
           </SheetTitle>
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
-          {/* User Profile */}
+          {/* Navigation */}
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={user?.user_metadata?.avatar_url} />
-                  <AvatarFallback>
-                    {user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="font-medium">{user?.user_metadata?.full_name || user?.email}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {user?.email}
-                  </p>
-                </div>
-              </div>
+              <CardTitle className="text-lg">Navigation</CardTitle>
             </CardHeader>
             <CardContent className="pt-0 space-y-2">
               <Button 
@@ -157,14 +136,6 @@ export const AppSidebar = () => {
               >
                 <Github className="mr-2 h-4 w-4" />
                 Support & Feedback
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start text-red-600 hover:text-red-700" 
-                onClick={signOut}
-              >
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
               </Button>
             </CardContent>
           </Card>

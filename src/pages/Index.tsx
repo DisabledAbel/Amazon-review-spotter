@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
 import { LandingPage } from "@/components/LandingPage";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
@@ -12,42 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Index = () => {
-  const { user, loading } = useAuth();
   const [showInstallGuide, setShowInstallGuide] = useState(false);
 
   // Show installation guide for new users
   useEffect(() => {
-    if (user) {
-      const hasSeenGuide = localStorage.getItem('has-seen-install-guide');
-      if (!hasSeenGuide) {
-        setShowInstallGuide(true);
-        localStorage.setItem('has-seen-install-guide', 'true');
-      }
+    const hasSeenGuide = localStorage.getItem('has-seen-install-guide');
+    if (!hasSeenGuide) {
+      setShowInstallGuide(true);
+      localStorage.setItem('has-seen-install-guide', 'true');
     }
-  }, [user]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="p-3 bg-primary rounded-2xl shadow-lg w-fit mx-auto">
-            <Shield className="h-8 w-8 text-primary-foreground animate-pulse" />
-          </div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <>
-        <ThemeToggle />
-        <PWAPrompt />
-        <LandingPage />
-      </>
-    );
-  }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
