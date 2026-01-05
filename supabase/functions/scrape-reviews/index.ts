@@ -135,40 +135,84 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
     'Connection': 'keep-alive'
   };
 
-  console.log('Fetching:', reviewsUrl);
-  const response = await fetch(reviewsUrl, { headers });
+  const allReviews: ReviewData[] = [];
+  let pageNumber = 1;
+  const maxPages = 50; // Limit to prevent infinite loops
   
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  console.log('Starting to scrape all reviews for ASIN:', asin);
+
+  while (pageNumber <= maxPages) {
+    const pageUrl = `https://www.amazon.com/product-reviews/${asin}/ref=cm_cr_getr_d_paging_btm_next_${pageNumber}?ie=UTF8&reviewerType=all_reviews&pageNumber=${pageNumber}`;
+    
+    console.log(`Fetching page ${pageNumber}:`, pageUrl);
+    
+    try {
+      const response = await fetch(pageUrl, { headers });
+      
+      if (!response.ok) {
+        console.log(`Page ${pageNumber} returned ${response.status}, stopping pagination`);
+        break;
+      }
+
+      const html = await response.text();
+      console.log(`Page ${pageNumber} HTML length:`, html.length);
+      
+      // Check if we got blocked
+      if (html.includes('Robot Check') || html.includes('captcha') || html.length < 1000) {
+        console.log(`Page ${pageNumber}: Amazon blocked the request`);
+        break;
+      }
+
+      // Parse reviews from this page
+      const pageReviews = parseAmazonHTML(html, asin, allReviews.length);
+      
+      if (pageReviews.length === 0) {
+        console.log(`Page ${pageNumber}: No more reviews found, stopping`);
+        break;
+      }
+
+      allReviews.push(...pageReviews);
+      console.log(`Page ${pageNumber}: Found ${pageReviews.length} reviews. Total: ${allReviews.length}`);
+
+      // Check if there's a next page by looking for pagination
+      const hasNextPage = html.includes(`pageNumber=${pageNumber + 1}`) || 
+                          html.includes('Next page') ||
+                          html.includes('→');
+      
+      if (!hasNextPage) {
+        console.log('No next page indicator found, stopping pagination');
+        break;
+      }
+
+      pageNumber++;
+      
+      // Add a small delay between requests to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+    } catch (error) {
+      console.error(`Error fetching page ${pageNumber}:`, error);
+      break;
+    }
   }
 
-  const html = await response.text();
-  console.log('HTML length:', html.length);
-  
-  // Check if we got blocked
-  if (html.includes('Robot Check') || html.includes('captcha') || html.length < 1000) {
-    throw new Error('Amazon blocked the request - got captcha or robot check');
+  if (allReviews.length === 0) {
+    throw new Error('No reviews found - parsing failed');
   }
 
-  // Parse reviews from HTML
-  const reviews = parseAmazonHTML(html, asin);
-  
-  if (reviews.length === 0) {
-    throw new Error('No reviews found in HTML - parsing failed');
-  }
+  console.log(`Total reviews scraped: ${allReviews.length} from ${pageNumber} pages`);
 
-    // Also scrape review videos
-    const productVideos = await scrapeReviewVideos(reviewsUrl);
+  // Also scrape review videos from first page
+  const productVideos = await scrapeReviewVideos(reviewsUrl);
   
   return {
-    totalReviews: reviews.length,
-    analysis: analyzeRealReviews(reviews),
-    reviews: reviews.slice(0, 10),
+    totalReviews: allReviews.length,
+    analysis: analyzeRealReviews(allReviews),
+    reviews: allReviews, // Return ALL reviews, not limited
     productVideos
   };
 }
 
-function parseAmazonHTML(html: string, asin: string): ReviewData[] {
+function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0): ReviewData[] {
   const reviews: ReviewData[] = [];
   
   try {
@@ -189,7 +233,7 @@ function parseAmazonHTML(html: string, asin: string): ReviewData[] {
       let match;
       console.log('Trying pattern:', pattern.source.substring(0, 50) + '...');
       
-      while ((match = pattern.exec(html)) !== null && reviews.length < 20) {
+      while ((match = pattern.exec(html)) !== null) {
         const reviewBlock = match[1] || match[0];
         console.log('Found potential review block, length:', reviewBlock.length);
         
@@ -263,7 +307,7 @@ function parseAmazonHTML(html: string, asin: string): ReviewData[] {
             });
             
             reviews.push({
-              id: `real_review_${reviews.length}`,
+              id: `real_review_${startingIndex + reviews.length}`,
               author: cleanText(author),
               rating,
               title: cleanText(title),
