@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,13 +5,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReviewData } from "@/types/review";
 import { Loader2, Link } from "lucide-react";
+import { ScrapeProgressIndicator } from "./ScrapeProgressIndicator";
+import { ScrapeProgress } from "@/hooks/useScrapeProgress";
 
 interface ReviewInputProps {
   onAnalyze: (data: ReviewData) => void;
   isAnalyzing: boolean;
+  scrapeProgress?: ScrapeProgress;
 }
 
-export const ReviewInput = ({ onAnalyze, isAnalyzing }: ReviewInputProps) => {
+export const ReviewInput = ({ onAnalyze, isAnalyzing, scrapeProgress }: ReviewInputProps) => {
   const [productLink, setProductLink] = useState("");
 
   // Enhanced URL validation
@@ -98,8 +100,13 @@ export const ReviewInput = ({ onAnalyze, isAnalyzing }: ReviewInputProps) => {
               value={productLink}
               onChange={(e) => setProductLink(e.target.value)}
               className="mt-1"
+              disabled={isAnalyzing}
             />
           </div>
+
+          {scrapeProgress && scrapeProgress.status !== 'idle' && (
+            <ScrapeProgressIndicator progress={scrapeProgress} />
+          )}
           
           <Button
             onClick={handleSubmit}
@@ -110,7 +117,7 @@ export const ReviewInput = ({ onAnalyze, isAnalyzing }: ReviewInputProps) => {
             {isAnalyzing ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Analyzing Product Reviews...
+                Scraping Reviews...
               </>
             ) : (
               "Analyze Product Reviews"

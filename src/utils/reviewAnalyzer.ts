@@ -17,7 +17,89 @@ const extractProductInfo = (productLink: string): ProductInfo => {
   return productInfo;
 };
 
-export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> => {
+// Helper to process scraping result into analysis result
+const processScrapingResult = async (
+  scrapingResult: any,
+  productInfo: ProductInfo,
+  productLink: string
+): Promise<AnalysisResult> => {
+  const analysis = scrapingResult.analysis;
+  const reviews = scrapingResult.reviews || [];
+
+  // Convert percentage to 1-10 scale for compatibility
+  const genuinenessScore = analysis.overallAuthenticityScore / 10;
+
+  // Create red flags from analysis
+  const redFlags = analysis.commonSuspiciousPatterns.map((p: any) => 
+    `${p.pattern} (found in ${p.count} reviews)`
+  );
+
+  // Add additional red flags based on metrics
+  if (analysis.verificationRate < 30) {
+    redFlags.push(`🚫 Low verification rate: Only ${analysis.verificationRate}% of reviews are verified purchases`);
+  }
+
+  const fiveStarRate = (analysis.ratingDistribution[5] || 0) / analysis.totalReviews * 100;
+  if (fiveStarRate > 80) {
+    redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
+  }
+
+  // Call video finder to get AI-curated videos
+  let aiVideos = [];
+  try {
+    const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
+      body: { 
+        productTitle: productInfo.title,
+        productAsin: productInfo.asin 
+      }
+    });
+    
+    if (!videoError && videoData?.success) {
+      aiVideos = videoData.videos || [];
+      console.log('Found', aiVideos.length, 'AI-curated videos');
+    }
+  } catch (videoError) {
+    console.log('AI video finder failed, continuing without videos:', videoError);
+  }
+
+  const result = {
+    genuinenessScore,
+    scoreExplanation: `Real-time analysis of ${analysis.totalReviews} reviews from ${scrapingResult.pagesScraped || 1} pages shows ${analysis.overallAuthenticityScore}% authenticity. Analyzed review patterns, verification rates, language consistency, and timing patterns.`,
+    redFlags,
+    finalVerdict: analysis.verdict,
+    verdictExplanation: `Based on comprehensive scraping and analysis of actual Amazon reviews: ${analysis.verdict}. Found ${analysis.verifiedPurchases} verified purchases out of ${analysis.totalReviews} total reviews (${analysis.verificationRate}% verification rate).`,
+    productInfo,
+    realAnalysis: {
+      totalReviews: analysis.totalReviews,
+      verificationRate: analysis.verificationRate,
+      authenticityPercentage: analysis.overallAuthenticityScore,
+      ratingDistribution: analysis.ratingDistribution,
+      pagesScraped: scrapingResult.pagesScraped || 1,
+      individualReviews: reviews.map((review: any) => ({
+        author: review.author,
+        rating: review.rating,
+        title: review.title,
+        link: review.link,
+        verified: review.verified,
+        authenticityScore: review.authenticityScore,
+        suspiciousPatterns: review.suspiciousPatterns
+      })),
+      productVideos: scrapingResult.productVideos || [],
+      onlineVideos: aiVideos.slice(0, 6)
+    }
+  };
+
+  // Save to historical analysis
+  await saveToHistory(result, productLink);
+
+  return result;
+};
+
+// New streaming version with progress
+export const analyzeReviewWithProgress = async (
+  data: ReviewData,
+  scrapeWithProgress: (productUrl: string, supabaseUrl: string, supabaseKey: string) => Promise<any>
+): Promise<AnalysisResult> => {
   const productInfo = extractProductInfo(data.productLink);
   
   // Check if it's a valid Amazon link
@@ -36,7 +118,54 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
   }
 
   try {
-    // Call the real review scraping edge function
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    
+    const scrapingResult = await scrapeWithProgress(data.productLink, supabaseUrl, supabaseKey);
+
+    console.log('Streaming scraping result received:', {
+      success: scrapingResult.success,
+      totalReviews: scrapingResult.totalReviews,
+      pagesScraped: scrapingResult.pagesScraped,
+      videosCount: scrapingResult.productVideos?.length || 0
+    });
+
+    if (!scrapingResult.success) {
+      throw new Error(scrapingResult.error || 'Failed to scrape reviews');
+    }
+
+    return await processScrapingResult(scrapingResult, productInfo, data.productLink);
+
+  } catch (error) {
+    console.error('Error during streaming review analysis:', error);
+    
+    // Fallback to simulated analysis if scraping fails
+    const fallbackResult = simulateAnalysis(data, productInfo);
+    await saveToHistory(fallbackResult, data.productLink);
+    
+    return fallbackResult;
+  }
+};
+
+// Original non-streaming version (kept for backwards compatibility)
+export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> => {
+  const productInfo = extractProductInfo(data.productLink);
+  
+  const isAmazonLink = data.productLink.includes('amazon.com');
+  const hasProductId = data.productLink.includes('/dp/');
+  
+  if (!isAmazonLink || !hasProductId) {
+    return {
+      genuinenessScore: 0,
+      scoreExplanation: "Unable to analyze: Invalid Amazon product URL provided",
+      redFlags: ["❌ Invalid Amazon product link provided - cannot analyze reviews"],
+      finalVerdict: "Unable to Analyze",
+      verdictExplanation: "Please provide a valid Amazon product URL to analyze reviews",
+      productInfo
+    };
+  }
+
+  try {
     const { data: scrapingResult, error } = await supabase.functions.invoke('scrape-reviews', {
       body: { productUrl: data.productLink }
     });
@@ -49,91 +178,19 @@ export const analyzeReview = async (data: ReviewData): Promise<AnalysisResult> =
     console.log('Scraping result received:', {
       success: scrapingResult.success,
       videosCount: scrapingResult.productVideos?.length || 0,
-      videoTitles: scrapingResult.productVideos?.map(v => v.title) || []
+      videoTitles: scrapingResult.productVideos?.map((v: any) => v.title) || []
     });
 
     if (!scrapingResult.success) {
       throw new Error(scrapingResult.error || 'Failed to scrape reviews');
     }
 
-    const analysis = scrapingResult.analysis;
-    const reviews = scrapingResult.reviews || [];
-
-    // Convert percentage to 1-10 scale for compatibility
-    const genuinenessScore = analysis.overallAuthenticityScore / 10;
-
-    // Create red flags from analysis
-    const redFlags = analysis.commonSuspiciousPatterns.map((p: any) => 
-      `${p.pattern} (found in ${p.count} reviews)`
-    );
-
-    // Add additional red flags based on metrics
-    if (analysis.verificationRate < 30) {
-      redFlags.push(`🚫 Low verification rate: Only ${analysis.verificationRate}% of reviews are verified purchases`);
-    }
-
-    const fiveStarRate = (analysis.ratingDistribution[5] || 0) / analysis.totalReviews * 100;
-    if (fiveStarRate > 80) {
-      redFlags.push(`⭐ Suspicious rating distribution: ${Math.round(fiveStarRate)}% are 5-star reviews`);
-    }
-
-    // Call video finder (now using OpenRouter) to get AI-curated videos
-    let aiVideos = [];
-    try {
-      const { data: videoData, error: videoError } = await supabase.functions.invoke('gemini-video-finder', {
-        body: { 
-          productTitle: productInfo.title,
-          productAsin: productInfo.asin 
-        }
-      });
-      
-      if (!videoError && videoData?.success) {
-        aiVideos = videoData.videos || [];
-        console.log('Found', aiVideos.length, 'AI-curated videos');
-      }
-    } catch (videoError) {
-      console.log('AI video finder failed, continuing without videos:', videoError);
-    }
-
-    const result = {
-      genuinenessScore,
-      scoreExplanation: `Real-time analysis of ${analysis.totalReviews} reviews shows ${analysis.overallAuthenticityScore}% authenticity. Analyzed review patterns, verification rates, language consistency, and timing patterns.`,
-      redFlags,
-      finalVerdict: analysis.verdict,
-      verdictExplanation: `Based on comprehensive scraping and analysis of actual Amazon reviews: ${analysis.verdict}. Found ${analysis.verifiedPurchases} verified purchases out of ${analysis.totalReviews} total reviews (${analysis.verificationRate}% verification rate).`,
-      productInfo,
-      // Add additional data from real scraping
-      realAnalysis: {
-        totalReviews: analysis.totalReviews,
-        verificationRate: analysis.verificationRate,
-        authenticityPercentage: analysis.overallAuthenticityScore,
-        ratingDistribution: analysis.ratingDistribution,
-        individualReviews: reviews.map((review: any) => ({
-          author: review.author,
-          rating: review.rating,
-          title: review.title,
-          link: review.link,
-          verified: review.verified,
-          authenticityScore: review.authenticityScore,
-          suspiciousPatterns: review.suspiciousPatterns
-        })),
-        productVideos: scrapingResult.productVideos || [],
-        onlineVideos: aiVideos.slice(0, 6) // Top 6 AI-curated videos
-      }
-    };
-
-    // Save to historical analysis
-    await saveToHistory(result, data.productLink);
-
-    return result;
+    return await processScrapingResult(scrapingResult, productInfo, data.productLink);
 
   } catch (error) {
     console.error('Error during real review analysis:', error);
     
-    // Fallback to simulated analysis if scraping fails
     const fallbackResult = simulateAnalysis(data, productInfo);
-    
-    // Save fallback to history as well
     await saveToHistory(fallbackResult, data.productLink);
     
     return fallbackResult;

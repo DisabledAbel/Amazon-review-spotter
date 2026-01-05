@@ -41,7 +41,7 @@ serve(async (req) => {
     // Log security event
     console.log('Review analysis request from authenticated user');
 
-    const { productUrl } = await req.json();
+    const { productUrl, stream } = await req.json();
     
     // Validate and sanitize input
     if (!productUrl || typeof productUrl !== 'string') {
@@ -68,20 +68,74 @@ serve(async (req) => {
     const reviewsUrl = `https://www.amazon.com/product-reviews/${asin}/ref=cm_cr_dp_d_show_all_btm?ie=UTF8&reviewerType=all_reviews`;
     
     console.log('Scraping real reviews for ASIN:', asin);
+
+    // If streaming is requested, use SSE
+    if (stream) {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream({
+        async start(controller) {
+          try {
+            const sendProgress = (data: any) => {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+            };
+
+            const realData = await scrapeRealReviewsWithProgress(reviewsUrl, asin, sendProgress);
+            
+            if (!realData || !realData.reviews || realData.reviews.length === 0) {
+              sendProgress({ type: 'error', message: 'No reviews found' });
+              controller.close();
+              return;
+            }
+
+            const validReviews = realData.reviews.filter((review: ReviewData) => 
+              review.author && 
+              review.title && 
+              review.content && 
+              !review.content.includes('This is a detailed review of the product')
+            );
+
+            sendProgress({
+              type: 'complete',
+              success: true,
+              productAsin: asin,
+              reviewsUrl,
+              totalReviews: realData.totalReviews,
+              analysis: realData.analysis,
+              reviews: validReviews,
+              productVideos: realData.productVideos || [],
+              pagesScraped: realData.pagesScraped
+            });
+            
+            controller.close();
+          } catch (error) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`));
+            controller.close();
+          }
+        }
+      });
+
+      return new Response(body, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
     
-    // Only get real data - no simulation fallback
+    // Non-streaming response (original behavior)
     const realData = await scrapeRealReviews(reviewsUrl, asin);
     
     if (!realData || !realData.reviews || realData.reviews.length === 0) {
       throw new Error('REAL DATA ONLY: Unable to extract genuine reviews from Amazon. No simulated data will be provided.');
     }
     
-    // Verify all reviews have real content (not placeholders)
-    const validReviews = realData.reviews.filter(review => 
+    const validReviews = realData.reviews.filter((review: ReviewData) => 
       review.author && 
       review.title && 
       review.content && 
-      !review.content.includes('This is a detailed review of the product') // Remove any placeholder content
+      !review.content.includes('This is a detailed review of the product')
     );
     
     if (validReviews.length === 0) {
@@ -94,11 +148,12 @@ serve(async (req) => {
       reviewsUrl,
       totalReviews: realData.totalReviews,
       analysis: realData.analysis,
-      reviews: realData.reviews,
+      reviews: validReviews,
       productVideos: realData.productVideos || [],
+      pagesScraped: realData.pagesScraped,
       debug: {
         videosFound: realData.productVideos?.length || 0,
-        videoTitles: realData.productVideos?.map(v => v.title) || []
+        videoTitles: realData.productVideos?.map((v: any) => v.title) || []
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -116,28 +171,114 @@ serve(async (req) => {
   }
 });
 
-async function scrapeRealReviews(reviewsUrl: string, asin: string) {
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-    'Sec-Ch-Ua-Mobile': '?0',
-    'Sec-Ch-Ua-Platform': '"Windows"',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Upgrade-Insecure-Requests': '1',
-    'Connection': 'keep-alive'
-  };
-
+async function scrapeRealReviewsWithProgress(
+  reviewsUrl: string, 
+  asin: string, 
+  sendProgress: (data: any) => void
+) {
+  const headers = getHeaders();
   const allReviews: ReviewData[] = [];
   let pageNumber = 1;
-  const maxPages = 50; // Limit to prevent infinite loops
+  const maxPages = 50;
+  
+  console.log('Starting to scrape all reviews for ASIN:', asin);
+  sendProgress({ type: 'start', message: 'Starting review scraping...' });
+
+  while (pageNumber <= maxPages) {
+    const pageUrl = `https://www.amazon.com/product-reviews/${asin}/ref=cm_cr_getr_d_paging_btm_next_${pageNumber}?ie=UTF8&reviewerType=all_reviews&pageNumber=${pageNumber}`;
+    
+    sendProgress({ 
+      type: 'progress', 
+      currentPage: pageNumber, 
+      totalReviews: allReviews.length,
+      message: `Scraping page ${pageNumber}...`
+    });
+    
+    console.log(`Fetching page ${pageNumber}:`, pageUrl);
+    
+    try {
+      const response = await fetch(pageUrl, { headers });
+      
+      if (!response.ok) {
+        console.log(`Page ${pageNumber} returned ${response.status}, stopping pagination`);
+        sendProgress({ type: 'info', message: `Stopped at page ${pageNumber} (HTTP ${response.status})` });
+        break;
+      }
+
+      const html = await response.text();
+      console.log(`Page ${pageNumber} HTML length:`, html.length);
+      
+      if (html.includes('Robot Check') || html.includes('captcha') || html.length < 1000) {
+        console.log(`Page ${pageNumber}: Amazon blocked the request`);
+        sendProgress({ type: 'blocked', message: `Amazon blocked at page ${pageNumber}` });
+        break;
+      }
+
+      const pageReviews = parseAmazonHTML(html, asin, allReviews.length);
+      
+      if (pageReviews.length === 0) {
+        console.log(`Page ${pageNumber}: No more reviews found, stopping`);
+        sendProgress({ type: 'info', message: 'No more reviews found' });
+        break;
+      }
+
+      allReviews.push(...pageReviews);
+      
+      sendProgress({ 
+        type: 'page_complete', 
+        currentPage: pageNumber, 
+        reviewsOnPage: pageReviews.length,
+        totalReviews: allReviews.length,
+        message: `Page ${pageNumber}: Found ${pageReviews.length} reviews (Total: ${allReviews.length})`
+      });
+
+      console.log(`Page ${pageNumber}: Found ${pageReviews.length} reviews. Total: ${allReviews.length}`);
+
+      const hasNextPage = html.includes(`pageNumber=${pageNumber + 1}`) || 
+                          html.includes('Next page') ||
+                          html.includes('→');
+      
+      if (!hasNextPage) {
+        console.log('No next page indicator found, stopping pagination');
+        break;
+      }
+
+      pageNumber++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+    } catch (error) {
+      console.error(`Error fetching page ${pageNumber}:`, error);
+      sendProgress({ type: 'error', message: `Error on page ${pageNumber}: ${error.message}` });
+      break;
+    }
+  }
+
+  if (allReviews.length === 0) {
+    throw new Error('No reviews found - parsing failed');
+  }
+
+  console.log(`Total reviews scraped: ${allReviews.length} from ${pageNumber} pages`);
+  sendProgress({ 
+    type: 'analyzing', 
+    message: `Analyzing ${allReviews.length} reviews from ${pageNumber} pages...`
+  });
+
+  const productVideos = await scrapeReviewVideos(reviewsUrl);
+  
+  return {
+    totalReviews: allReviews.length,
+    pagesScraped: pageNumber,
+    analysis: analyzeRealReviews(allReviews),
+    reviews: allReviews,
+    productVideos
+  };
+}
+
+async function scrapeRealReviews(reviewsUrl: string, asin: string) {
+  const headers = getHeaders();
+  const allReviews: ReviewData[] = [];
+  let pageNumber = 1;
+  const maxPages = 50;
   
   console.log('Starting to scrape all reviews for ASIN:', asin);
 
@@ -157,13 +298,11 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
       const html = await response.text();
       console.log(`Page ${pageNumber} HTML length:`, html.length);
       
-      // Check if we got blocked
       if (html.includes('Robot Check') || html.includes('captcha') || html.length < 1000) {
         console.log(`Page ${pageNumber}: Amazon blocked the request`);
         break;
       }
 
-      // Parse reviews from this page
       const pageReviews = parseAmazonHTML(html, asin, allReviews.length);
       
       if (pageReviews.length === 0) {
@@ -174,7 +313,6 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
       allReviews.push(...pageReviews);
       console.log(`Page ${pageNumber}: Found ${pageReviews.length} reviews. Total: ${allReviews.length}`);
 
-      // Check if there's a next page by looking for pagination
       const hasNextPage = html.includes(`pageNumber=${pageNumber + 1}`) || 
                           html.includes('Next page') ||
                           html.includes('→');
@@ -185,8 +323,6 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
       }
 
       pageNumber++;
-      
-      // Add a small delay between requests to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 500));
       
     } catch (error) {
@@ -201,14 +337,34 @@ async function scrapeRealReviews(reviewsUrl: string, asin: string) {
 
   console.log(`Total reviews scraped: ${allReviews.length} from ${pageNumber} pages`);
 
-  // Also scrape review videos from first page
   const productVideos = await scrapeReviewVideos(reviewsUrl);
   
   return {
     totalReviews: allReviews.length,
+    pagesScraped: pageNumber,
     analysis: analyzeRealReviews(allReviews),
-    reviews: allReviews, // Return ALL reviews, not limited
+    reviews: allReviews,
     productVideos
+  };
+}
+
+function getHeaders() {
+  return {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    'Connection': 'keep-alive'
   };
 }
 
@@ -218,13 +374,10 @@ function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0):
   try {
     console.log('Starting HTML parsing...');
     
-    // More comprehensive review container patterns
     const reviewPatterns = [
-      // Main review containers
       /<div[^>]*data-hook="review"[^>]*>([\s\S]*?)(?=<div[^>]*data-hook="review"|<\/div>\s*<\/div>\s*$)/g,
       /<div[^>]*class="[^"]*review[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*review"|$)/g,
       /<div[^>]*id="[^"]*review[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*id="[^"]*review"|$)/g,
-      // Alternative patterns for Amazon's changing structure
       /<article[^>]*>([\s\S]*?)<\/article>/g,
       /<section[^>]*class="[^"]*review[^"]*"[^>]*>([\s\S]*?)<\/section>/g
     ];
@@ -238,7 +391,6 @@ function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0):
         console.log('Found potential review block, length:', reviewBlock.length);
         
         try {
-          // More comprehensive author extraction
           const author = extractPattern(reviewBlock, [
             /class="[^"]*profile-name[^"]*"[^>]*>([^<]+)</i,
             /data-hook="review-author"[^>]*>([^<]+)</i,
@@ -247,7 +399,6 @@ function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0):
             /by\s+<[^>]+>([^<]+)</i
           ]);
           
-          // Rating extraction with multiple patterns
           const ratingPatterns = [
             /(\d+(?:\.\d+)?)\s*out of 5 stars/i,
             /(\d+(?:\.\d+)?)\s*\/\s*5/i,
@@ -264,7 +415,6 @@ function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0):
             }
           }
           
-          // Title extraction
           const title = extractPattern(reviewBlock, [
             /data-hook="review-title"[^>]*><span[^>]*>([^<]+)<\/span>/i,
             /class="[^"]*review-title[^"]*"[^>]*><span[^>]*>([^<]+)<\/span>/i,
@@ -273,7 +423,6 @@ function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0):
             /<strong[^>]*>([^<]+)<\/strong>/i
           ]);
           
-          // Content extraction
           const content = extractPattern(reviewBlock, [
             /data-hook="review-body"[^>]*><span[^>]*>([^<]+)</i,
             /class="[^"]*review-text[^"]*"[^>]*><span[^>]*>([^<]+)</i,
@@ -282,7 +431,6 @@ function parseAmazonHTML(html: string, asin: string, startingIndex: number = 0):
             /<p[^>]*class="[^"]*review[^"]*"[^>]*>([^<]+)</i
           ]);
           
-          // Date extraction
           const dateStr = extractPattern(reviewBlock, [
             /data-hook="review-date"[^>]*>([^<]+)</i,
             /Reviewed in [^<]+ on ([^<]+)</i,
@@ -348,9 +496,9 @@ function extractPattern(text: string, patterns: RegExp[]): string | null {
 
 function cleanText(text: string): string {
   return text
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/&[^;]+;/g, ' ') // Remove HTML entities
-    .replace(/\s+/g, ' ') // Normalize whitespace
+    .replace(/<[^>]*>/g, '')
+    .replace(/&[^;]+;/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -359,18 +507,15 @@ function detectRealSuspiciousPatterns(review: any): string[] {
   const content = review.content.toLowerCase();
   const title = review.title.toLowerCase();
   
-  // Generic marketing phrases
   const marketingPhrases = ['amazing', 'perfect', 'best ever', 'life-changing', 'game changer'];
   if (marketingPhrases.some(phrase => content.includes(phrase) || title.includes(phrase))) {
     patterns.push('🤖 Contains common marketing phrases');
   }
   
-  // Short content with high rating
   if (review.content.length < 50 && review.rating >= 4) {
     patterns.push('📝 Very brief review with high rating');
   }
   
-  // Unverified high rating
   if (!review.verified && review.rating >= 4) {
     patterns.push('🚫 High rating without verified purchase');
   }
@@ -389,7 +534,6 @@ function calculateRealAuthenticityScore(patterns: string[], verified: boolean, h
 
 async function scrapeReviewVideos(url: string) {
   try {
-    // Navigate to the reviews page specifically
     const reviewsUrl = url.includes('/reviews/') ? url : url.replace('/dp/', '/product-reviews/');
     
     const headers = {
@@ -411,7 +555,6 @@ async function scrapeReviewVideos(url: string) {
     
     const videos = [];
 
-    // First, create some test videos to ensure the display works
     videos.push({
       title: 'Test Customer Review Video 1',
       url: 'https://www.amazon.com/test-video-1',
@@ -431,7 +574,6 @@ async function scrapeReviewVideos(url: string) {
       views: '856'
     });
 
-    // Simplified video extraction patterns
     const videoPatterns = [
       /video/gi,
       /\.mp4/gi,
@@ -449,10 +591,9 @@ async function scrapeReviewVideos(url: string) {
     console.log('Video-related elements found in HTML:', foundVideoElements);
 
     console.log('Total videos found (including test videos):', videos.length);
-    return videos.slice(0, 8); // Limit to 8 videos
+    return videos.slice(0, 8);
   } catch (error) {
     console.error('Error scraping review videos:', error);
-    // Return test videos even if scraping fails
     return [{
       title: 'Test Customer Review Video 1',
       url: 'https://www.amazon.com/test-video-1',
