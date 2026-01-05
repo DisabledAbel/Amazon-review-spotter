@@ -5,15 +5,17 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { ChatBot } from "@/components/ChatBot";
 import { ReviewTips } from "@/components/ReviewTips";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { analyzeReview } from "@/utils/reviewAnalyzer";
+import { analyzeReviewWithProgress } from "@/utils/reviewAnalyzer";
 import { ReviewData, AnalysisResult } from "@/types/review";
 import { Shield, Search, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useScrapeProgress } from "@/hooks/useScrapeProgress";
 
 const Reviews = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
+  const { progress, scrapeWithProgress, resetProgress } = useScrapeProgress();
 
   // Listen for product analysis requests from YouTube search
   useEffect(() => {
@@ -80,9 +82,10 @@ const Reviews = () => {
 
   const handleAnalyze = async (reviewData: ReviewData) => {
     setIsAnalyzing(true);
+    resetProgress();
     
     try {
-      const result = await analyzeReview(reviewData);
+      const result = await analyzeReviewWithProgress(reviewData, scrapeWithProgress);
       setAnalysisResult(result);
       
       // Dispatch event to trigger chatbot YouTube video search
@@ -128,6 +131,7 @@ const Reviews = () => {
 
   const handleReset = () => {
     setAnalysisResult(null);
+    resetProgress();
   };
 
   return (
@@ -174,7 +178,7 @@ const Reviews = () => {
             <ReviewTips />
 
             <div className="max-w-2xl mx-auto">
-              <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} />
+              <ReviewInput onAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} scrapeProgress={progress} />
             </div>
           </div>
         ) : (
