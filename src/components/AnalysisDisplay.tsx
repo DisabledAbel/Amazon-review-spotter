@@ -20,8 +20,15 @@ import {
   Bookmark,
   BookmarkCheck,
   Loader2,
-  Sparkles
+  Sparkles,
+  Download
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
 
 interface AnalysisDisplayProps {
@@ -174,6 +181,83 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
     }
   };
 
+  const exportToCSV = () => {
+    const reviews = result.realAnalysis?.individualReviews || [];
+    if (reviews.length === 0) {
+      toast({
+        title: "No reviews to export",
+        description: "There are no reviews available to export",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const headers = ['Author', 'Rating', 'Title', 'Verified', 'Authenticity Score', 'Suspicious Patterns', 'Link'];
+    const csvRows = [
+      headers.join(','),
+      ...reviews.map(review => [
+        `"${review.author.replace(/"/g, '""')}"`,
+        review.rating,
+        `"${review.title.replace(/"/g, '""')}"`,
+        review.verified ? 'Yes' : 'No',
+        `${review.authenticityScore}%`,
+        `"${review.suspiciousPatterns.join('; ').replace(/"/g, '""')}"`,
+        `"${review.link}"`
+      ].join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${result.productInfo.title.slice(0, 50).replace(/[^a-z0-9]/gi, '_')}_reviews.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported ${reviews.length} reviews to CSV`
+    });
+  };
+
+  const exportToJSON = () => {
+    const exportData = {
+      productInfo: result.productInfo,
+      analysis: {
+        genuinenessScore: result.genuinenessScore,
+        scoreExplanation: result.scoreExplanation,
+        finalVerdict: result.finalVerdict,
+        verdictExplanation: result.verdictExplanation,
+        redFlags: result.redFlags,
+        totalReviews: result.realAnalysis?.totalReviews || 0,
+        verificationRate: result.realAnalysis?.verificationRate || 0,
+        authenticityPercentage: result.realAnalysis?.authenticityPercentage || 0,
+        ratingDistribution: result.realAnalysis?.ratingDistribution || {}
+      },
+      reviews: result.realAnalysis?.individualReviews || [],
+      exportedAt: new Date().toISOString()
+    };
+
+    const jsonContent = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${result.productInfo.title.slice(0, 50).replace(/[^a-z0-9]/gi, '_')}_reviews.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Export Complete",
+      description: `Exported analysis data to JSON`
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -185,7 +269,23 @@ export const AnalysisDisplay = ({ result, onReset }: AnalysisDisplayProps) => {
               <ArrowLeft className="h-4 w-4" />
               Analyze Another Product
             </Button>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={exportToCSV}>
+                    Export to CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={exportToJSON}>
+                    Export to JSON
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button 
                 onClick={handleSaveProduct}
                 disabled={saving || isSaved}
